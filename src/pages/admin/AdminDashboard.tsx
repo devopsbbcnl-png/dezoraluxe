@@ -26,6 +26,7 @@ import {
 	Edit,
 	Trash2,
 	Plus,
+	Mail,
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -58,17 +59,92 @@ const AdminDashboard = () => {
 	};
 
 	const recentOrders = [
-		{ id: 'ORD-001', customer: 'John Doe', amount: 2499, status: 'Delivered', date: '2024-01-15' },
-		{ id: 'ORD-002', customer: 'Jane Smith', amount: 899, status: 'Processing', date: '2024-01-14' },
-		{ id: 'ORD-003', customer: 'Bob Johnson', amount: 549, status: 'Shipped', date: '2024-01-13' },
-		{ id: 'ORD-004', customer: 'Alice Brown', amount: 329, status: 'Delivered', date: '2024-01-12' },
+		{
+			id: 'ORD-001',
+			customer: 'John Doe',
+			amount: 2499,
+			status: 'Delivered',
+			date: '2024-01-15',
+		},
+		{
+			id: 'ORD-002',
+			customer: 'Jane Smith',
+			amount: 899,
+			status: 'Processing',
+			date: '2024-01-14',
+		},
+		{
+			id: 'ORD-003',
+			customer: 'Bob Johnson',
+			amount: 549,
+			status: 'Shipped',
+			date: '2024-01-13',
+		},
+		{
+			id: 'ORD-004',
+			customer: 'Alice Brown',
+			amount: 329,
+			status: 'Delivered',
+			date: '2024-01-12',
+		},
 	];
 
 	const products = [
-		{ id: 1, name: 'Signature Timepiece', category: 'Watches', price: 2499, stock: 45 },
+		{
+			id: 1,
+			name: 'Signature Timepiece',
+			category: 'Watches',
+			price: 2499,
+			stock: 45,
+		},
 		{ id: 2, name: 'Executive Tote', category: 'Bags', price: 899, stock: 32 },
 		{ id: 3, name: 'Studio Pro Max', category: 'Audio', price: 549, stock: 28 },
-		{ id: 4, name: 'Aviator Classic', category: 'Eyewear', price: 329, stock: 67 },
+		{
+			id: 4,
+			name: 'Aviator Classic',
+			category: 'Eyewear',
+			price: 329,
+			stock: 67,
+		},
+	];
+
+	const subscribers = [
+		{
+			id: 1,
+			email: 'john.doe@example.com',
+			subscribedAt: '2024-01-10',
+			status: 'Active',
+		},
+		{
+			id: 2,
+			email: 'jane.smith@example.com',
+			subscribedAt: '2024-01-08',
+			status: 'Active',
+		},
+		{
+			id: 3,
+			email: 'bob.johnson@example.com',
+			subscribedAt: '2024-01-05',
+			status: 'Active',
+		},
+		{
+			id: 4,
+			email: 'alice.brown@example.com',
+			subscribedAt: '2023-12-28',
+			status: 'Active',
+		},
+		{
+			id: 5,
+			email: 'charlie.wilson@example.com',
+			subscribedAt: '2023-12-20',
+			status: 'Unsubscribed',
+		},
+		{
+			id: 6,
+			email: 'diana.miller@example.com',
+			subscribedAt: '2024-01-12',
+			status: 'Active',
+		},
 	];
 
 	const formatPrice = (price: number) => {
@@ -84,6 +160,7 @@ const AdminDashboard = () => {
 		{ id: 'products', label: 'Products', icon: Package },
 		{ id: 'orders', label: 'Orders', icon: ShoppingCart },
 		{ id: 'users', label: 'Users', icon: Users },
+		{ id: 'subscribers', label: 'Subscribers', icon: Mail },
 		{ id: 'settings', label: 'Settings', icon: Settings },
 	];
 
@@ -151,7 +228,9 @@ const AdminDashboard = () => {
 									<DollarSign className="h-4 w-4 text-muted-foreground" />
 								</CardHeader>
 								<CardContent>
-									<div className="text-2xl font-bold">{formatPrice(stats.totalRevenue)}</div>
+									<div className="text-2xl font-bold">
+										{formatPrice(stats.totalRevenue)}
+									</div>
 									<div className="flex items-center gap-1 text-xs text-green-500 mt-1">
 										<ArrowUpRight className="h-3 w-3" />
 										{stats.revenueChange}% from last month
@@ -183,7 +262,9 @@ const AdminDashboard = () => {
 									<Package2 className="h-4 w-4 text-muted-foreground" />
 								</CardHeader>
 								<CardContent>
-									<div className="text-2xl font-bold">{stats.totalProducts}</div>
+									<div className="text-2xl font-bold">
+										{stats.totalProducts}
+									</div>
 									<div className="flex items-center gap-1 text-xs text-green-500 mt-1">
 										<ArrowUpRight className="h-3 w-3" />
 										{stats.productsChange}% from last month
@@ -227,7 +308,9 @@ const AdminDashboard = () => {
 									<TableBody>
 										{recentOrders.map((order) => (
 											<TableRow key={order.id}>
-												<TableCell className="font-medium">{order.id}</TableCell>
+												<TableCell className="font-medium">
+													{order.id}
+												</TableCell>
 												<TableCell>{order.customer}</TableCell>
 												<TableCell>{formatPrice(order.amount)}</TableCell>
 												<TableCell>
@@ -284,7 +367,9 @@ const AdminDashboard = () => {
 									<TableBody>
 										{products.map((product) => (
 											<TableRow key={product.id}>
-												<TableCell className="font-medium">{product.id}</TableCell>
+												<TableCell className="font-medium">
+													{product.id}
+												</TableCell>
 												<TableCell>{product.name}</TableCell>
 												<TableCell>{product.category}</TableCell>
 												<TableCell>{formatPrice(product.price)}</TableCell>
@@ -294,7 +379,11 @@ const AdminDashboard = () => {
 														<Button variant="ghost" size="icon">
 															<Edit className="h-4 w-4" />
 														</Button>
-														<Button variant="ghost" size="icon" className="text-destructive">
+														<Button
+															variant="ghost"
+															size="icon"
+															className="text-destructive"
+														>
 															<Trash2 className="h-4 w-4" />
 														</Button>
 													</div>
@@ -333,7 +422,9 @@ const AdminDashboard = () => {
 									<TableBody>
 										{recentOrders.map((order) => (
 											<TableRow key={order.id}>
-												<TableCell className="font-medium">{order.id}</TableCell>
+												<TableCell className="font-medium">
+													{order.id}
+												</TableCell>
 												<TableCell>{order.customer}</TableCell>
 												<TableCell>{formatPrice(order.amount)}</TableCell>
 												<TableCell>
@@ -368,9 +459,7 @@ const AdminDashboard = () => {
 					<div className="space-y-8">
 						<div>
 							<h2 className="text-3xl font-bold mb-2">Users</h2>
-							<p className="text-muted-foreground">
-								Manage user accounts
-							</p>
+							<p className="text-muted-foreground">Manage user accounts</p>
 						</div>
 
 						<Card className="border-border">
@@ -383,13 +472,87 @@ const AdminDashboard = () => {
 					</div>
 				)}
 
+				{activeTab === 'subscribers' && (
+					<div className="space-y-8">
+						<div className="flex items-center justify-between">
+							<div>
+								<h2 className="text-3xl font-bold mb-2">Subscribers</h2>
+								<p className="text-muted-foreground">
+									Manage newsletter and email subscribers
+								</p>
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="text-sm text-muted-foreground">
+									Total: {subscribers.length}
+								</span>
+							</div>
+						</div>
+
+						<Card className="border-border">
+							<CardContent className="p-0">
+								<Table>
+									<TableHeader>
+										<TableRow>
+											<TableHead>ID</TableHead>
+											<TableHead>Email</TableHead>
+											<TableHead>Subscribed At</TableHead>
+											<TableHead>Status</TableHead>
+											<TableHead className="text-right">Actions</TableHead>
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{subscribers.map((subscriber) => (
+											<TableRow key={subscriber.id}>
+												<TableCell className="font-medium">
+													{subscriber.id}
+												</TableCell>
+												<TableCell>{subscriber.email}</TableCell>
+												<TableCell>
+													{new Date(subscriber.subscribedAt).toLocaleDateString(
+														'en-US',
+														{
+															year: 'numeric',
+															month: 'short',
+															day: 'numeric',
+														}
+													)}
+												</TableCell>
+												<TableCell>
+													<span
+														className={`px-2 py-1 rounded-full text-xs ${
+															subscriber.status === 'Active'
+																? 'bg-green-500/20 text-green-500'
+																: 'bg-gray-500/20 text-gray-500'
+														}`}
+													>
+														{subscriber.status}
+													</span>
+												</TableCell>
+												<TableCell className="text-right">
+													<div className="flex justify-end gap-2">
+														<Button
+															variant="ghost"
+															size="icon"
+															className="text-destructive"
+														>
+															<Trash2 className="h-4 w-4" />
+														</Button>
+													</div>
+												</TableCell>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							</CardContent>
+						</Card>
+					</div>
+				)}
+
 				{activeTab === 'settings' && (
 					<div className="space-y-8">
 						<div>
 							<h2 className="text-3xl font-bold mb-2">Settings</h2>
-							<p className="text-muted-foreground">
-								Configure store settings
-							</p>
+							<p className="text-muted-foreground">Configure store settings</p>
 						</div>
 
 						<Card className="border-border">
@@ -407,4 +570,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

@@ -13,6 +13,8 @@ import SignUp from "./pages/SignUp";
 import AllCategories from "./pages/AllCategories";
 import AllProducts from "./pages/AllProducts";
 import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import ProductDetail from "./pages/ProductDetail";
 import Favorites from "./pages/Favorites";
 import OrderHistory from "./pages/OrderHistory";
@@ -42,6 +44,8 @@ const App = () => (
           <Route path="/products" element={<AllProducts />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/order-confirmation" element={<OrderConfirmation />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/orders" element={<OrderHistory />} />
           <Route path="/profile" element={<AccountProfile />} />

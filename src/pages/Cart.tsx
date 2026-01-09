@@ -185,11 +185,15 @@ const Cart = () => {
 										<CardContent className="space-y-4">
 											<div className="space-y-2">
 												<div className="flex justify-between text-sm">
-													<span className="text-muted-foreground">Subtotal</span>
+													<span className="text-muted-foreground">
+														Subtotal
+													</span>
 													<span>{formatPrice(subtotal)}</span>
 												</div>
 												<div className="flex justify-between text-sm">
-													<span className="text-muted-foreground">Shipping</span>
+													<span className="text-muted-foreground">
+														Shipping
+													</span>
 													<span>
 														{shipping === 0 ? (
 															<span className="text-gold">Free</span>
@@ -204,7 +208,8 @@ const Cart = () => {
 												</div>
 												{subtotal < 200 && (
 													<p className="text-xs text-muted-foreground pt-2">
-														Add {formatPrice(200 - subtotal)} more for free shipping
+														Add {formatPrice(200 - subtotal)} more for free
+														shipping
 													</p>
 												)}
 											</div>
@@ -216,9 +221,11 @@ const Cart = () => {
 														{formatPrice(total)}
 													</span>
 												</div>
-												<Button variant="hero" className="w-full" size="lg">
-													Proceed to Checkout
-												</Button>
+												<Link to="/checkout">
+													<Button variant="hero" className="w-full" size="lg">
+														Proceed to Checkout
+													</Button>
+												</Link>
 											</div>
 
 											<Link
@@ -252,4 +259,3 @@ const Cart = () => {
 };
 
 export default Cart;
-

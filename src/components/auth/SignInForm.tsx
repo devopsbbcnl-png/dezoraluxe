@@ -26,11 +26,17 @@ const SignInForm = () => {
 
 	return (
 		<div className="w-full space-y-6">
-			<div className="space-y-2 text-center">
+			<div className="relative space-y-2 text-center">
 				<h2 className="text-2xl font-bold">Sign In</h2>
 				<p className="text-sm text-muted-foreground">
 					Enter your credentials to access your account
 				</p>
+				{/* <Link
+					to="/admin/login"
+					className="absolute right-0 top-0 text-[11px] text-muted-foreground hover:text-gold transition-colors"
+				>
+					Admin Login
+				</Link> */}
 			</div>
 
 			<form onSubmit={handleSubmit} className="space-y-4">
@@ -68,7 +74,9 @@ const SignInForm = () => {
 					<span className="w-full border-t border-border" />
 				</div>
 				<div className="relative flex justify-center text-xs uppercase">
-					<span className="bg-popover px-2 text-muted-foreground">Or continue with</span>
+					<span className="bg-popover px-2 text-muted-foreground">
+						Or continue with
+					</span>
 				</div>
 			</div>
 
@@ -135,4 +143,3 @@ const SignInForm = () => {
 };
 
 export default SignInForm;
-
