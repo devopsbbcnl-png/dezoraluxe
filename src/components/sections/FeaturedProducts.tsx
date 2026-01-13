@@ -16,7 +16,7 @@ const FeaturedProducts = () => {
           .select('*')
           .eq('featured', true)
           .order('created_at', { ascending: false })
-          .limit(8); // Limit to 8 featured products
+          .limit(16); // Show 16 featured products for better selection
 
         if (error) {
           console.error('Error loading featured products:', error);
@@ -37,23 +37,22 @@ const FeaturedProducts = () => {
   }, []);
 
   return (
-    <section className="py-24 md:py-32">
+    <section className="py-12 md:py-16">
       <div className="container mx-auto px-6">
-        {/* Section Header */}
-        <div className="text-center mb-16 space-y-4">
-          <p className="text-sm uppercase tracking-[0.3em] text-gold">Curated Selection</p>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Featured Products
-          </h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Handpicked essentials that define modern luxury
+        {/* Minimal Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
+            Shop Premium Essentials
+          </h1>
+          <p className="text-muted-foreground">
+            Discover our curated collection
           </p>
         </div>
         
-        {/* Products Grid */}
+        {/* Products Grid - Larger, more prominent */}
         {loading ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div
                 key={i}
                 className="aspect-square bg-card rounded-sm animate-pulse"
@@ -62,7 +61,7 @@ const FeaturedProducts = () => {
           </div>
         ) : products.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No featured products available</p>
+            <p className="text-muted-foreground">No products available</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
@@ -72,16 +71,18 @@ const FeaturedProducts = () => {
           </div>
         )}
         
-        {/* View All Link */}
-        <div className="text-center mt-12">
-          <Link
-            to="/products"
-            className="inline-flex items-center gap-2 text-sm font-medium text-gold hover:text-gold-muted transition-colors group"
-          >
-            View All Products
-            <span className="group-hover:translate-x-1 transition-transform">→</span>
-          </Link>
-        </div>
+        {/* Single CTA */}
+        {products.length > 0 && (
+          <div className="text-center mt-12">
+            <Link
+              to="/products"
+              className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-gradient-gold text-charcoal-deep font-semibold rounded-sm hover:shadow-glow transition-all duration-300"
+            >
+              View All Products
+              <span className="group-hover:translate-x-1 transition-transform">→</span>
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

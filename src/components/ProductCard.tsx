@@ -79,22 +79,18 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
           </Button>
         </div>
         
-        {/* Quick Add Button (appears on hover) */}
-        <div
-          className={`absolute bottom-4 left-4 right-4 transition-all duration-300 ${
-            isHovered ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
-          }`}
-        >
+        {/* Quick Add Button - Always visible, more prominent */}
+        <div className="absolute bottom-4 left-4 right-4">
           <Button 
             variant="hero" 
-            className="w-full"
+            className="w-full shadow-lg"
             onClick={(e) => {
               e.preventDefault();
               addToCart(product.id, 1);
             }}
             disabled={product.stock <= 0}
           >
-            Add to Cart
+            {product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
           </Button>
         </div>
       </div>
