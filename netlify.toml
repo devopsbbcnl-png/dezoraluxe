@@ -2,6 +2,11 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  # These are public client-side keys (VITE_*), not secrets - safe to expose in build output
+  # VITE_* variables are meant to be embedded in client-side code
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY,VITE_PAYSTACK_PUBLIC_KEY,VITE_CLOUDINARY_CLOUD_NAME,VITE_CLOUDINARY_UPLOAD_PRESET"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
