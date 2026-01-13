@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Menu, X, Search, User } from 'lucide-react';
+import { ShoppingBag, Menu, X, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
 	Popover,
@@ -8,9 +8,12 @@ import {
 	PopoverTrigger,
 } from '@/components/ui/popover';
 import SignInForm from '@/components/auth/SignInForm';
+import SearchBar from '@/components/SearchBar';
+import { useCart } from '@/contexts/CartContext';
 
 const Navbar = () => {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
+	const { cartCount } = useCart();
 
 	const navLinks = [
 		{ name: 'New Arrivals', href: '/new-arrivals' },
@@ -47,9 +50,7 @@ const Navbar = () => {
 
 					{/* Actions */}
 					<div className="flex items-center gap-4">
-						<Button variant="ghost" size="icon" className="hidden md:flex">
-							<Search className="h-5 w-5" />
-						</Button>
+						<SearchBar />
 						<Popover>
 							<PopoverTrigger asChild>
 								<Button variant="ghost" size="icon">
@@ -63,9 +64,11 @@ const Navbar = () => {
 						<Link to="/cart">
 							<Button variant="ghost" size="icon" className="relative">
 								<ShoppingBag className="h-5 w-5" />
-								<span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
-									3
-								</span>
+								{cartCount > 0 && (
+									<span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
+										{cartCount > 99 ? '99+' : cartCount}
+									</span>
+								)}
 							</Button>
 						</Link>
 						<Button

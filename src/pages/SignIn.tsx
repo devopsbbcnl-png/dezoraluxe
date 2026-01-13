@@ -1,16 +1,21 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const SignIn = () => {
+	const navigate = useNavigate();
+	const { signIn, signInWithGoogle, signInWithFacebook } = useAuth();
 	const [formData, setFormData] = useState({
 		email: '',
 		password: '',
 	});
+	const [loading, setLoading] = useState(false);
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setFormData({
@@ -19,20 +24,38 @@ const SignIn = () => {
 		});
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		// Handle sign in logic here
-		console.log('Sign in:', formData);
+		setLoading(true);
+
+		const { error } = await signIn(formData.email, formData.password);
+
+		if (error) {
+			toast.error(error.message || 'Failed to sign in');
+		} else {
+			toast.success('Signed in successfully');
+			navigate('/');
+		}
+
+		setLoading(false);
 	};
 
-	const handleGoogleSignIn = () => {
-		// Handle Google sign in
-		console.log('Google sign in');
+	const handleGoogleSignIn = async () => {
+		setLoading(true);
+		const { error } = await signInWithGoogle();
+		if (error) {
+			toast.error(error.message || 'Failed to sign in with Google');
+			setLoading(false);
+		}
 	};
 
-	const handleFacebookSignIn = () => {
-		// Handle Facebook sign in
-		console.log('Facebook sign in');
+	const handleFacebookSignIn = async () => {
+		setLoading(true);
+		const { error } = await signInWithFacebook();
+		if (error) {
+			toast.error(error.message || 'Failed to sign in with Facebook');
+			setLoading(false);
+		}
 	};
 
 	return (
@@ -84,8 +107,8 @@ const SignIn = () => {
 											/>
 										</div>
 
-										<Button type="submit" className="w-full" variant="default">
-											Sign In
+										<Button type="submit" className="w-full" variant="default" disabled={loading}>
+											{loading ? 'Signing in...' : 'Sign In'}
 										</Button>
 									</form>
 
@@ -106,6 +129,7 @@ const SignIn = () => {
 											variant="outline"
 											className="w-full"
 											onClick={handleGoogleSignIn}
+											disabled={loading}
 										>
 											<svg
 												className="mr-2 h-4 w-4"
@@ -129,6 +153,7 @@ const SignIn = () => {
 											variant="outline"
 											className="w-full"
 											onClick={handleFacebookSignIn}
+											disabled={loading}
 										>
 											<svg
 												className="mr-2 h-4 w-4"

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -13,96 +13,79 @@ import {
 	Check,
 	ArrowLeft,
 } from 'lucide-react';
-import productWatch from '@/assets/product-watch.jpg';
-import productBag from '@/assets/product-bag.jpg';
-import productHeadphones from '@/assets/product-headphones.jpg';
-import productSunglasses from '@/assets/product-sunglasses.jpg';
-
-const products = [
-	{
-		id: 1,
-		name: 'Signature Timepiece',
-		category: 'Watches',
-		price: 2499,
-		image: productWatch,
-		description:
-			'A masterfully crafted timepiece that combines precision engineering with timeless elegance. Features a premium stainless steel case, sapphire crystal, and Swiss movement.',
-		features: [
-			'Swiss Automatic Movement',
-			'Sapphire Crystal',
-			'Water Resistant 100m',
-			'Stainless Steel Case',
-			'2-Year Warranty',
-		],
-		rating: 4.9,
-		reviews: 127,
-		inStock: true,
-	},
-	{
-		id: 2,
-		name: 'Executive Tote',
-		category: 'Bags',
-		price: 899,
-		image: productBag,
-		description:
-			'Premium leather tote designed for the modern professional. Spacious interior with multiple compartments, perfect for work and travel.',
-		features: [
-			'Genuine Leather',
-			'Multiple Compartments',
-			'Adjustable Strap',
-			'Laptop Sleeve Included',
-			'Lifetime Warranty',
-		],
-		rating: 4.8,
-		reviews: 89,
-		inStock: true,
-	},
-	{
-		id: 3,
-		name: 'Studio Pro Max',
-		category: 'Audio',
-		price: 549,
-		image: productHeadphones,
-		description:
-			'Professional-grade headphones with exceptional sound quality. Perfect for music production, gaming, or immersive listening experiences.',
-		features: [
-			'Active Noise Cancellation',
-			'30-Hour Battery Life',
-			'Premium Drivers',
-			'Comfortable Memory Foam',
-			'Wireless & Wired',
-		],
-		rating: 4.7,
-		reviews: 203,
-		inStock: true,
-	},
-	{
-		id: 4,
-		name: 'Aviator Classic',
-		category: 'Eyewear',
-		price: 329,
-		image: productSunglasses,
-		description:
-			'Classic aviator sunglasses with UV protection and polarized lenses. Timeless design that never goes out of style.',
-		features: [
-			'100% UV Protection',
-			'Polarized Lenses',
-			'Lightweight Frame',
-			'Scratch Resistant',
-			'Case Included',
-		],
-		rating: 4.6,
-		reviews: 156,
-		inStock: true,
-	},
-];
+import { supabase } from '@/lib/supabase';
+import type { Product } from '@/types/database';
+import { getOptimizedCloudinaryUrl } from '@/lib/cloudinary';
+import { useCart } from '@/contexts/CartContext';
 
 const ProductDetail = () => {
 	const { id } = useParams<{ id: string }>();
-	const product = products.find((p) => p.id === Number(id));
+	const [product, setProduct] = useState<Product | null>(null);
+	const [loading, setLoading] = useState(true);
 	const [quantity, setQuantity] = useState(1);
 	const [isFavorite, setIsFavorite] = useState(false);
 	const [selectedImage, setSelectedImage] = useState(0);
+	const { addToCart } = useCart();
+
+	useEffect(() => {
+		const loadProduct = async () => {
+			if (!id) {
+				setLoading(false);
+				return;
+			}
+
+			try {
+				const { data, error } = await supabase
+					.from('products')
+					.select('*')
+					.eq('id', id)
+					.single();
+
+				if (error) {
+					console.error('Error loading product:', error);
+					setProduct(null);
+				} else {
+					setProduct(data);
+				}
+			} catch (error) {
+				console.error('Error loading product:', error);
+				setProduct(null);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		loadProduct();
+	}, [id]);
+
+	const formatPrice = (price: number) => {
+		return new Intl.NumberFormat('en-NG', {
+			style: 'currency',
+			currency: 'NGN',
+			minimumFractionDigits: 0,
+		}).format(price);
+	};
+
+	if (loading) {
+		return (
+			<div className="min-h-screen bg-background">
+				<Navbar />
+				<main className="pt-20">
+					<div className="container mx-auto px-6 py-24">
+						<div className="grid lg:grid-cols-2 gap-12">
+							<div className="aspect-square bg-card rounded-sm animate-pulse" />
+							<div className="space-y-4">
+								<div className="h-8 bg-card rounded animate-pulse" />
+								<div className="h-4 bg-card rounded animate-pulse w-3/4" />
+								<div className="h-12 bg-card rounded animate-pulse" />
+							</div>
+						</div>
+					</div>
+				</main>
+				<Footer />
+			</div>
+		);
+	}
 
 	if (!product) {
 		return (
@@ -121,15 +104,10 @@ const ProductDetail = () => {
 		);
 	}
 
-	const formatPrice = (price: number) => {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 0,
-		}).format(price);
-	};
-
-	const images = [product.image, product.image, product.image];
+	// Use product images array, or fallback to placeholder
+	const images = product.images && product.images.length > 0 
+		? product.images 
+		: ['/placeholder.svg'];
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -181,30 +159,46 @@ const ProductDetail = () => {
 							<div className="space-y-4">
 								<div className="aspect-square overflow-hidden rounded-sm bg-card">
 									<img
-										src={images[selectedImage]}
+										src={
+											images[selectedImage]
+												? getOptimizedCloudinaryUrl(images[selectedImage], {
+														width: 800,
+														height: 800,
+														crop: 'fill',
+														quality: 'auto',
+													})
+												: '/placeholder.svg'
+										}
 										alt={product.name}
 										className="w-full h-full object-cover"
 									/>
 								</div>
-								<div className="grid grid-cols-3 gap-4">
-									{images.map((img, index) => (
-										<button
-											key={index}
-											onClick={() => setSelectedImage(index)}
-											className={`aspect-square overflow-hidden rounded-sm border-2 transition-all ${
-												selectedImage === index
-													? 'border-gold'
-													: 'border-border hover:border-gold/50'
-											}`}
-										>
-											<img
-												src={img}
-												alt={`${product.name} view ${index + 1}`}
-												className="w-full h-full object-cover"
-											/>
-										</button>
-									))}
-								</div>
+								{images.length > 1 && (
+									<div className="grid grid-cols-3 gap-4">
+										{images.map((img, index) => (
+											<button
+												key={index}
+												onClick={() => setSelectedImage(index)}
+												className={`aspect-square overflow-hidden rounded-sm border-2 transition-all ${
+													selectedImage === index
+														? 'border-gold'
+														: 'border-border hover:border-gold/50'
+												}`}
+											>
+												<img
+													src={getOptimizedCloudinaryUrl(img, {
+														width: 200,
+														height: 200,
+														crop: 'fill',
+														quality: 'auto',
+													})}
+													alt={`${product.name} view ${index + 1}`}
+													className="w-full h-full object-cover"
+												/>
+											</button>
+										))}
+									</div>
+								)}
 							</div>
 
 							{/* Product Info */}
@@ -216,44 +210,32 @@ const ProductDetail = () => {
 									<h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
 										{product.name}
 									</h1>
-									<div className="flex items-center gap-4 mb-4">
-										<div className="flex items-center gap-1">
-											{Array.from({ length: 5 }).map((_, i) => (
-												<Star
-													key={i}
-													className={`h-5 w-5 ${
-														i < Math.floor(product.rating)
-															? 'fill-gold text-gold'
-															: 'text-muted-foreground'
-													}`}
-												/>
-											))}
-										</div>
-										<span className="text-sm text-muted-foreground">
-											{product.rating} ({product.reviews} reviews)
-										</span>
-									</div>
+									{/* Rating removed - not in database schema */}
 									<p className="text-3xl font-bold text-gradient-gold">
 										{formatPrice(product.price)}
 									</p>
 								</div>
 
 								<div className="space-y-4">
-									<p className="text-muted-foreground leading-relaxed">
-										{product.description}
-									</p>
+									{product.description && (
+										<p className="text-muted-foreground leading-relaxed">
+											{product.description}
+										</p>
+									)}
 
-									<div className="space-y-2">
-										<h3 className="font-semibold">Features:</h3>
-										<ul className="space-y-2">
-											{product.features.map((feature, index) => (
-												<li key={index} className="flex items-center gap-2">
-													<Check className="h-4 w-4 text-gold flex-shrink-0" />
-													<span className="text-sm">{feature}</span>
-												</li>
-											))}
-										</ul>
-									</div>
+									{product.features && product.features.length > 0 && (
+										<div className="space-y-2">
+											<h3 className="font-semibold">Features:</h3>
+											<ul className="space-y-2">
+												{product.features.map((feature, index) => (
+													<li key={index} className="flex items-center gap-2">
+														<Check className="h-4 w-4 text-gold flex-shrink-0" />
+														<span className="text-sm">{feature}</span>
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
 								</div>
 
 								{/* Quantity and Actions */}
@@ -286,7 +268,8 @@ const ProductDetail = () => {
 											variant="hero"
 											className="flex-1"
 											size="lg"
-											disabled={!product.inStock}
+											disabled={product.stock <= 0}
+											onClick={() => addToCart(product.id, quantity)}
 										>
 											<ShoppingBag className="mr-2 h-5 w-5" />
 											Add to Cart
@@ -307,9 +290,14 @@ const ProductDetail = () => {
 										</Button>
 									</div>
 
-									{!product.inStock && (
+									{product.stock <= 0 && (
 										<p className="text-sm text-destructive">
 											This item is currently out of stock
+										</p>
+									)}
+									{product.stock > 0 && product.stock < 10 && (
+										<p className="text-sm text-gold">
+											Only {product.stock} left in stock
 										</p>
 									)}
 								</div>

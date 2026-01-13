@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Shield } from 'lucide-react';
+import { Shield, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { checkAdminStatus } from '@/lib/admin';
+import { toast } from 'sonner';
 
 const AdminLogin = () => {
 	const navigate = useNavigate();
@@ -13,6 +16,7 @@ const AdminLogin = () => {
 		password: '',
 	});
 	const [error, setError] = useState('');
+	const [loading, setLoading] = useState(false);
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setFormData({
@@ -22,15 +26,50 @@ const AdminLogin = () => {
 		setError('');
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		// Basic validation - in production, this would call an API
-		if (formData.email === 'admin@dezoraluxe.com' && formData.password === 'admin123') {
-			// Store admin session (in production, use proper auth)
+		setLoading(true);
+		setError('');
+
+		try {
+			// Sign in with Supabase
+			const { data, error: signInError } = await supabase.auth.signInWithPassword({
+				email: formData.email,
+				password: formData.password,
+			});
+
+			if (signInError) {
+				setError(signInError.message || 'Invalid email or password');
+				setLoading(false);
+				return;
+			}
+
+			if (!data.user) {
+				setError('Authentication failed');
+				setLoading(false);
+				return;
+			}
+
+			// Check if user is an admin
+			const isAdmin = await checkAdminStatus();
+
+			if (!isAdmin) {
+				// Sign out if not admin
+				await supabase.auth.signOut();
+				setError('Access denied. You do not have admin privileges.');
+				setLoading(false);
+				return;
+			}
+
+			// Store admin session
 			localStorage.setItem('adminAuthenticated', 'true');
+			toast.success('Admin access granted');
 			navigate('/admin/dashboard');
-		} else {
-			setError('Invalid email or password');
+		} catch (err) {
+			console.error('Admin login error:', err);
+			setError('An error occurred. Please try again.');
+		} finally {
+			setLoading(false);
 		}
 	};
 
@@ -78,12 +117,25 @@ const AdminLogin = () => {
 									required
 								/>
 							</div>
-							<Button type="submit" variant="hero" className="w-full" size="lg">
-								Sign In
+							<Button
+								type="submit"
+								variant="hero"
+								className="w-full"
+								size="lg"
+								disabled={loading}
+							>
+								{loading ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Signing in...
+									</>
+								) : (
+									'Sign In'
+								)}
 							</Button>
 						</form>
 						<div className="mt-4 text-center text-xs text-muted-foreground">
-							<p>Demo: admin@dezoraluxe.com / admin123</p>
+							<p>Only users with admin privileges can access this page</p>
 						</div>
 					</CardContent>
 				</Card>

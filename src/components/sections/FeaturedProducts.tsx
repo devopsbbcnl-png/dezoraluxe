@@ -1,42 +1,41 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import ProductCard from "@/components/ProductCard";
-import productWatch from "@/assets/product-watch.jpg";
-import productBag from "@/assets/product-bag.jpg";
-import productHeadphones from "@/assets/product-headphones.jpg";
-import productSunglasses from "@/assets/product-sunglasses.jpg";
-
-const products = [
-  {
-    id: 1,
-    name: "Signature Timepiece",
-    category: "Watches",
-    price: 2499,
-    image: productWatch,
-  },
-  {
-    id: 2,
-    name: "Executive Tote",
-    category: "Bags",
-    price: 899,
-    image: productBag,
-  },
-  {
-    id: 3,
-    name: "Studio Pro Max",
-    category: "Audio",
-    price: 549,
-    image: productHeadphones,
-  },
-  {
-    id: 4,
-    name: "Aviator Classic",
-    category: "Eyewear",
-    price: 329,
-    image: productSunglasses,
-  },
-];
+import { supabase } from "@/lib/supabase";
+import type { Product } from "@/types/database";
 
 const FeaturedProducts = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadFeaturedProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('featured', true)
+          .order('created_at', { ascending: false })
+          .limit(8); // Limit to 8 featured products
+
+        if (error) {
+          console.error('Error loading featured products:', error);
+          setProducts([]);
+          return;
+        }
+
+        setProducts(data || []);
+      } catch (error) {
+        console.error('Error loading featured products:', error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFeaturedProducts();
+  }, []);
+
   return (
     <section className="py-24 md:py-32">
       <div className="container mx-auto px-6">
@@ -52,11 +51,26 @@ const FeaturedProducts = () => {
         </div>
         
         {/* Products Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-          {products.map((product, index) => (
-            <ProductCard key={product.id} product={product} index={index} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="aspect-square bg-card rounded-sm animate-pulse"
+              />
+            ))}
+          </div>
+        ) : products.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No featured products available</p>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            {products.map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
+            ))}
+          </div>
+        )}
         
         {/* View All Link */}
         <div className="text-center mt-12">

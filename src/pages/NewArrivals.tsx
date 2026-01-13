@@ -1,71 +1,39 @@
+import { useState, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/ProductCard";
-import productWatch from "@/assets/product-watch.jpg";
-import productBag from "@/assets/product-bag.jpg";
-import productHeadphones from "@/assets/product-headphones.jpg";
-import productSunglasses from "@/assets/product-sunglasses.jpg";
-
-const newArrivals = [
-  {
-    id: 1,
-    name: "Signature Timepiece",
-    category: "Watches",
-    price: 2499,
-    image: productWatch,
-  },
-  {
-    id: 2,
-    name: "Executive Tote",
-    category: "Bags",
-    price: 899,
-    image: productBag,
-  },
-  {
-    id: 3,
-    name: "Studio Pro Max",
-    category: "Audio",
-    price: 549,
-    image: productHeadphones,
-  },
-  {
-    id: 4,
-    name: "Aviator Classic",
-    category: "Eyewear",
-    price: 329,
-    image: productSunglasses,
-  },
-  {
-    id: 5,
-    name: "Elite Chronograph",
-    category: "Watches",
-    price: 3299,
-    image: productWatch,
-  },
-  {
-    id: 6,
-    name: "Minimalist Backpack",
-    category: "Bags",
-    price: 649,
-    image: productBag,
-  },
-  {
-    id: 7,
-    name: "Wireless Studio",
-    category: "Audio",
-    price: 449,
-    image: productHeadphones,
-  },
-  {
-    id: 8,
-    name: "Retro Shades",
-    category: "Eyewear",
-    price: 279,
-    image: productSunglasses,
-  },
-];
+import { supabase } from "@/lib/supabase";
+import type { Product } from "@/types/database";
 
 const NewArrivals = () => {
+	const [products, setProducts] = useState<Product[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		const loadNewArrivals = async () => {
+			try {
+				const { data, error } = await supabase
+					.from('products')
+					.select('*')
+					.eq('new_arrival', true)
+					.order('created_at', { ascending: false });
+
+				if (error) {
+					console.error('Error loading new arrivals:', error);
+					setProducts([]);
+				} else {
+					setProducts(data || []);
+				}
+			} catch (error) {
+				console.error('Error loading new arrivals:', error);
+				setProducts([]);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		loadNewArrivals();
+	}, []);
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -90,11 +58,26 @@ const NewArrivals = () => {
         {/* Products Grid */}
         <section className="py-16 md:py-24">
           <div className="container mx-auto px-6">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-              {newArrivals.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
-              ))}
-            </div>
+            {loading ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <div
+                    key={i}
+                    className="aspect-square bg-card rounded-sm animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : products.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No new arrivals available</p>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+                {products.map((product, index) => (
+                  <ProductCard key={product.id} product={product} index={index} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>

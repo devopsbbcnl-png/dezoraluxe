@@ -1,15 +1,72 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const Newsletter = () => {
   const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle newsletter signup
-    console.log("Newsletter signup:", email);
-    setEmail("");
+    
+    if (!email || !email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Use the subscribe_email function for better error handling
+      const { data, error } = await supabase.rpc('subscribe_email', {
+        email_address: email.trim().toLowerCase()
+      });
+
+      if (error) {
+        // Fallback to direct insert if function doesn't exist
+        if (error.message.includes('function') || error.message.includes('does not exist')) {
+          // Try direct insert with conflict handling
+          const { error: insertError } = await supabase
+            .from('subscribers')
+            .insert({ 
+              email: email.trim().toLowerCase(),
+              status: 'active'
+            })
+            .select();
+
+          if (insertError) {
+            // Check if it's a duplicate email error
+            if (insertError.code === '23505' || insertError.message.includes('duplicate')) {
+              toast.info('You are already subscribed to our newsletter!');
+              setEmail("");
+              setIsSubmitting(false);
+              return;
+            }
+            throw insertError;
+          }
+
+          toast.success('Successfully subscribed to our newsletter!');
+          setEmail("");
+        } else {
+          throw error;
+        }
+      } else if (data) {
+        // Function executed successfully
+        if (data.success) {
+          toast.success(data.message || 'Successfully subscribed to our newsletter!');
+        } else {
+          toast.info(data.message || 'You are already subscribed!');
+        }
+        setEmail("");
+      }
+    } catch (error: any) {
+      console.error('Subscription error:', error);
+      toast.error(error.message || 'Failed to subscribe. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -38,9 +95,15 @@ const Newsletter = () => {
               className="flex-1 h-14 px-6 bg-secondary border border-border rounded-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors"
               required
             />
-            <Button type="submit" variant="hero" size="xl" className="group">
-              Subscribe
-              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            <Button 
+              type="submit" 
+              variant="hero" 
+              size="xl" 
+              className="group"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Subscribing...' : 'Subscribe'}
+              {!isSubmitting && <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />}
             </Button>
           </form>
           

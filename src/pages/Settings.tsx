@@ -31,7 +31,7 @@ const Settings = () => {
 		marketing: true,
 	});
 	const [preferences, setPreferences] = useState({
-		currency: 'USD',
+		currency: 'NGN',
 		language: 'en',
 		theme: 'dark',
 	});
@@ -160,6 +160,7 @@ const Settings = () => {
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
+											<SelectItem value="NGN">NGN - Nigerian Naira</SelectItem>
 											<SelectItem value="USD">USD - US Dollar</SelectItem>
 											<SelectItem value="EUR">EUR - Euro</SelectItem>
 											<SelectItem value="GBP">GBP - British Pound</SelectItem>

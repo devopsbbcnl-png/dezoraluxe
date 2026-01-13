@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -11,52 +12,88 @@ import {
 	TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, Eye } from 'lucide-react';
+import { Package, Eye, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import type { Order, OrderItem } from '@/types/database';
+import { toast } from 'sonner';
 
-interface Order {
-	id: string;
-	date: string;
-	status: 'Delivered' | 'Processing' | 'Shipped' | 'Cancelled';
-	items: number;
-	total: number;
+interface OrderWithItems extends Order {
+	items_count: number;
 }
 
-const orders: Order[] = [
-	{
-		id: 'ORD-2024-001',
-		date: '2024-01-15',
-		status: 'Delivered',
-		items: 2,
-		total: 3398,
-	},
-	{
-		id: 'ORD-2024-002',
-		date: '2024-01-10',
-		status: 'Delivered',
-		items: 1,
-		total: 899,
-	},
-	{
-		id: 'ORD-2024-003',
-		date: '2024-01-05',
-		status: 'Shipped',
-		items: 3,
-		total: 1377,
-	},
-	{
-		id: 'ORD-2024-004',
-		date: '2024-01-01',
-		status: 'Processing',
-		items: 1,
-		total: 549,
-	},
-];
-
 const OrderHistory = () => {
+	const { user } = useAuth();
+	const navigate = useNavigate();
+	const [orders, setOrders] = useState<OrderWithItems[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		if (!user) {
+			// Redirect to sign in if not logged in
+			navigate('/signin');
+			return;
+		}
+
+		loadOrders();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [user]);
+
+	const loadOrders = async () => {
+		if (!user) return;
+
+		setLoading(true);
+		try {
+			// Fetch orders for the current user
+			const { data: ordersData, error: ordersError } = await supabase
+				.from('orders')
+				.select('*')
+				.eq('user_id', user.id)
+				.order('created_at', { ascending: false });
+
+			if (ordersError) {
+				throw ordersError;
+			}
+
+			if (!ordersData || ordersData.length === 0) {
+				setOrders([]);
+				setLoading(false);
+				return;
+			}
+
+			// Fetch item counts for each order
+			const ordersWithItems = await Promise.all(
+				ordersData.map(async (order) => {
+					const { count, error: countError } = await supabase
+						.from('order_items')
+						.select('*', { count: 'exact', head: true })
+						.eq('order_id', order.id);
+
+					if (countError) {
+						console.error('Error counting order items:', countError);
+					}
+
+					return {
+						...order,
+						items_count: count || 0,
+					};
+				})
+			);
+
+			setOrders(ordersWithItems);
+		} catch (error: any) {
+			console.error('Error loading orders:', error);
+			toast.error('Failed to load orders');
+			setOrders([]);
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	const formatPrice = (price: number) => {
-		return new Intl.NumberFormat('en-US', {
+		return new Intl.NumberFormat('en-NG', {
 			style: 'currency',
-			currency: 'USD',
+			currency: 'NGN',
 			minimumFractionDigits: 0,
 		}).format(price);
 	};
@@ -69,15 +106,34 @@ const OrderHistory = () => {
 		});
 	};
 
-	const getStatusColor = (status: string) => {
+	const getStatusDisplay = (status: Order['status']) => {
 		switch (status) {
-			case 'Delivered':
+			case 'delivered':
+				return 'Delivered';
+			case 'shipped':
+				return 'Shipped';
+			case 'processing':
+				return 'Processing';
+			case 'pending':
+				return 'Pending';
+			case 'cancelled':
+				return 'Cancelled';
+			default:
+				return status;
+		}
+	};
+
+	const getStatusColor = (status: Order['status']) => {
+		switch (status) {
+			case 'delivered':
 				return 'text-green-500';
-			case 'Shipped':
+			case 'shipped':
 				return 'text-blue-500';
-			case 'Processing':
+			case 'processing':
 				return 'text-yellow-500';
-			case 'Cancelled':
+			case 'pending':
+				return 'text-yellow-500';
+			case 'cancelled':
 				return 'text-destructive';
 			default:
 				return 'text-muted-foreground';
@@ -105,7 +161,12 @@ const OrderHistory = () => {
 				{/* Orders Table */}
 				<section className="py-16 md:py-24">
 					<div className="container mx-auto px-6">
-						{orders.length > 0 ? (
+						{loading ? (
+							<div className="text-center py-16">
+								<Loader2 className="h-8 w-8 mx-auto text-muted-foreground animate-spin mb-4" />
+								<p className="text-muted-foreground">Loading orders...</p>
+							</div>
+						) : orders.length > 0 ? (
 							<Card className="border-border">
 								<CardHeader>
 									<CardTitle>Your Orders</CardTitle>
@@ -126,28 +187,31 @@ const OrderHistory = () => {
 											{orders.map((order) => (
 												<TableRow key={order.id}>
 													<TableCell className="font-medium">
-														{order.id}
+														{order.order_number || order.id}
 													</TableCell>
-													<TableCell>{formatDate(order.date)}</TableCell>
-													<TableCell>{order.items}</TableCell>
+													<TableCell>{formatDate(order.created_at)}</TableCell>
+													<TableCell>{order.items_count}</TableCell>
 													<TableCell className="font-semibold">
-														{formatPrice(order.total)}
+														{formatPrice(order.total_amount)}
 													</TableCell>
 													<TableCell>
 														<span className={getStatusColor(order.status)}>
-															{order.status}
+															{getStatusDisplay(order.status)}
 														</span>
 													</TableCell>
 													<TableCell className="text-right">
 														<Button
 															variant="ghost"
 															size="sm"
-															asChild
+															onClick={() => {
+																// Navigate to order detail or confirmation page
+																navigate('/order-confirmation', {
+																	state: { orderId: order.id }
+																});
+															}}
 														>
-															<Link to={`/orders/${order.id}`}>
-																<Eye className="mr-2 h-4 w-4" />
-																View
-															</Link>
+															<Eye className="mr-2 h-4 w-4" />
+															View
 														</Button>
 													</TableCell>
 												</TableRow>

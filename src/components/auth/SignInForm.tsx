@@ -1,29 +1,117 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { User, Package, Truck, Heart, MapPin, LogOut } from 'lucide-react';
 
 const SignInForm = () => {
+	const navigate = useNavigate();
+	const { user, signIn, signInWithGoogle, signInWithFacebook, signOut } =
+		useAuth();
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
+	const [loading, setLoading] = useState(false);
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		// Handle sign in logic here
-		console.log('Sign in:', { email, password });
+		setLoading(true);
+
+		const { error } = await signIn(email, password);
+
+		if (error) {
+			toast.error(error.message || 'Failed to sign in');
+		} else {
+			toast.success('Signed in successfully');
+			navigate('/');
+		}
+
+		setLoading(false);
 	};
 
-	const handleGoogleSignIn = () => {
-		// Handle Google sign in
-		console.log('Google sign in');
+	const handleGoogleSignIn = async () => {
+		setLoading(true);
+		const { error } = await signInWithGoogle();
+		if (error) {
+			toast.error(error.message || 'Failed to sign in with Google');
+			setLoading(false);
+		}
 	};
 
-	const handleFacebookSignIn = () => {
-		// Handle Facebook sign in
-		console.log('Facebook sign in');
+	const handleFacebookSignIn = async () => {
+		setLoading(true);
+		const { error } = await signInWithFacebook();
+		if (error) {
+			toast.error(error.message || 'Failed to sign in with Facebook');
+			setLoading(false);
+		}
 	};
 
+	// If user is logged in, show account navigation links
+	if (user) {
+		return (
+			<div className="w-full space-y-2">
+				<div className="space-y-1 pb-3 border-b border-border">
+					<p className="text-sm font-semibold text-foreground">{user.email}</p>
+					<p className="text-xs text-muted-foreground">My Account</p>
+				</div>
+
+				<nav className="space-y-1">
+					<Link
+						to="/profile"
+						className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+					>
+						<User className="h-4 w-4" />
+						My Account
+					</Link>
+					<Link
+						to="/orders"
+						className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+					>
+						<Package className="h-4 w-4" />
+						Order History
+					</Link>
+					<Link
+						to="/orders"
+						className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+					>
+						<Truck className="h-4 w-4" />
+						Track Orders
+					</Link>
+					<Link
+						to="/favorites"
+						className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+					>
+						<Heart className="h-4 w-4" />
+						My Saved Items
+					</Link>
+					<Link
+						to="/profile"
+						className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+					>
+						<MapPin className="h-4 w-4" />
+						My Addresses
+					</Link>
+				</nav>
+
+				<div className="pt-3 border-t border-border">
+					<Button
+						variant="outline"
+						className="w-full justify-start"
+						onClick={signOut}
+					>
+						<LogOut className="mr-2 h-4 w-4" />
+						Sign Out
+					</Button>
+				</div>
+			</div>
+		);
+	}
+
+	// If user is not logged in, show sign-in form
 	return (
 		<div className="w-full space-y-6">
 			<div className="relative space-y-2 text-center">
@@ -31,12 +119,6 @@ const SignInForm = () => {
 				<p className="text-sm text-muted-foreground">
 					Enter your credentials to access your account
 				</p>
-				{/* <Link
-					to="/admin/login"
-					className="absolute right-0 top-0 text-[11px] text-muted-foreground hover:text-gold transition-colors"
-				>
-					Admin Login
-				</Link> */}
 			</div>
 
 			<form onSubmit={handleSubmit} className="space-y-4">
@@ -64,8 +146,13 @@ const SignInForm = () => {
 					/>
 				</div>
 
-				<Button type="submit" className="w-full" variant="default">
-					Sign In
+				<Button
+					type="submit"
+					className="w-full"
+					variant="default"
+					disabled={loading}
+				>
+					{loading ? 'Signing in...' : 'Sign In'}
 				</Button>
 			</form>
 
@@ -86,6 +173,7 @@ const SignInForm = () => {
 					variant="outline"
 					className="w-full"
 					onClick={handleGoogleSignIn}
+					disabled={loading}
 				>
 					<svg
 						className="mr-2 h-4 w-4"
@@ -109,6 +197,7 @@ const SignInForm = () => {
 					variant="outline"
 					className="w-full"
 					onClick={handleFacebookSignIn}
+					disabled={loading}
 				>
 					<svg
 						className="mr-2 h-4 w-4"

@@ -1,66 +1,116 @@
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Package, Mail, Home, Download } from 'lucide-react';
-import productWatch from '@/assets/product-watch.jpg';
-import productBag from '@/assets/product-bag.jpg';
-import productHeadphones from '@/assets/product-headphones.jpg';
+import { useCart } from '@/contexts/CartContext';
+import { supabase } from '@/lib/supabase';
+import { getOptimizedCloudinaryUrl } from '@/lib/cloudinary';
 
 const OrderConfirmation = () => {
-	// Mock order data - in production, this would come from route params or state
-	const orderDetails = {
-		orderNumber: 'ORD-2024-001234',
-		orderDate: new Date().toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		}),
-		items: [
-			{
-				id: 1,
-				name: 'Signature Timepiece',
-				category: 'Watches',
-				price: 2499,
-				quantity: 1,
-				image: productWatch,
-			},
-			{
-				id: 2,
-				name: 'Executive Tote',
-				category: 'Bags',
-				price: 899,
-				quantity: 2,
-				image: productBag,
-			},
-			{
-				id: 3,
-				name: 'Studio Pro Max',
-				category: 'Audio',
-				price: 549,
-				quantity: 1,
-				image: productHeadphones,
-			},
-		],
-		shipping: {
-			name: 'John Doe',
-			address: '123 Main Street',
-			city: 'New York',
-			state: 'NY',
-			zipCode: '10001',
-			country: 'United States',
-		},
-		subtotal: 4247,
-		shipping: 0,
-		tax: 339.76,
-		total: 4586.76,
-	};
+	const location = useLocation();
+	const { clearCart } = useCart();
+	const orderData = location.state;
+	const [orderCreated, setOrderCreated] = useState(false);
+
+	// Create order if it doesn't exist (fallback for direct navigation)
+	useEffect(() => {
+		const createOrderIfNeeded = async () => {
+			// If orderId exists, order was already created in checkout
+			if (orderData?.orderId || orderCreated) {
+				// Clear cart if not already cleared
+				if (orderData?.orderId) {
+					await clearCart();
+				}
+				return;
+			}
+
+			// If we have order data but no orderId, try to create the order
+			if (orderData && orderData.cartItems && orderData.shippingInfo) {
+				try {
+					// This is a fallback - ideally orders should be created in checkout
+					// For now, we'll just clear the cart
+					await clearCart();
+					setOrderCreated(true);
+				} catch (error) {
+					console.error('Error in order confirmation fallback:', error);
+				}
+			}
+		};
+
+		createOrderIfNeeded();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Use order data from checkout
+	const orderDetails = orderData
+		? {
+				orderNumber:
+					orderData.orderNumber ||
+					orderData.orderReference ||
+					'ORD-2024-001234',
+				paymentReference: orderData.paymentReference,
+				orderDate: new Date().toLocaleDateString('en-US', {
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric',
+				}),
+				items: orderData.cartItems || [],
+				shippingAddress: {
+					name: `${orderData.shippingInfo?.firstName || ''} ${
+						orderData.shippingInfo?.lastName || ''
+					}`.trim(),
+					address: orderData.shippingInfo?.address || '',
+					city: orderData.shippingInfo?.city || '',
+					state: orderData.shippingInfo?.state || '',
+					zipCode: orderData.shippingInfo?.zipCode || '',
+					country: orderData.shippingInfo?.country || 'Nigeria',
+				},
+				deliveryMethod: orderData.deliveryMethod,
+				subtotal:
+					orderData.cartItems?.reduce(
+						(
+							sum: number,
+							item: {
+								product?: { price: number };
+								price?: number;
+								quantity: number;
+							}
+						) => sum + (item.product?.price || item.price || 0) * item.quantity,
+						0
+					) || 0,
+				shippingCost: orderData.deliveryMethod?.price || 0,
+				tax: ((orderData.total || 0) * 0.08) / 1.08,
+				total: orderData.total || 0,
+		  }
+		: {
+				orderNumber: 'ORD-2024-001234',
+				orderDate: new Date().toLocaleDateString('en-US', {
+					year: 'numeric',
+					month: 'long',
+					day: 'numeric',
+				}),
+				items: [],
+				shippingAddress: {
+					name: '',
+					address: '',
+					city: '',
+					state: '',
+					zipCode: '',
+					country: 'Nigeria',
+				},
+				subtotal: 0,
+				shippingCost: 0,
+				tax: 0,
+				total: 0,
+		  };
 
 	const formatPrice = (price: number) => {
-		return new Intl.NumberFormat('en-US', {
+		return new Intl.NumberFormat('en-NG', {
 			style: 'currency',
-			currency: 'USD',
+			currency: 'NGN',
 			minimumFractionDigits: 2,
 		}).format(price);
 	};
@@ -193,15 +243,15 @@ const OrderConfirmation = () => {
 										<CardContent>
 											<div className="space-y-1 text-muted-foreground">
 												<p className="font-medium text-foreground">
-													{orderDetails.shipping.name}
+													{orderDetails.shippingAddress.name}
 												</p>
-												<p>{orderDetails.shipping.address}</p>
+												<p>{orderDetails.shippingAddress.address}</p>
 												<p>
-													{orderDetails.shipping.city},{' '}
-													{orderDetails.shipping.state}{' '}
-													{orderDetails.shipping.zipCode}
+													{orderDetails.shippingAddress.city},{' '}
+													{orderDetails.shippingAddress.state}{' '}
+													{orderDetails.shippingAddress.zipCode}
 												</p>
-												<p>{orderDetails.shipping.country}</p>
+												<p>{orderDetails.shippingAddress.country}</p>
 											</div>
 										</CardContent>
 									</Card>
@@ -224,8 +274,19 @@ const OrderConfirmation = () => {
 												<div className="flex justify-between text-sm">
 													<span className="text-muted-foreground">
 														Shipping
+														{orderDetails.deliveryMethod && (
+															<span className="block text-xs text-muted-foreground mt-1">
+																{orderDetails.deliveryMethod.name}
+															</span>
+														)}
 													</span>
-													<span className="text-gold">Free</span>
+													<span>
+														{orderDetails.shippingCost === 0 ? (
+															<span className="text-gold">Free</span>
+														) : (
+															formatPrice(orderDetails.shippingCost)
+														)}
+													</span>
 												</div>
 												<div className="flex justify-between text-sm">
 													<span className="text-muted-foreground">Tax</span>

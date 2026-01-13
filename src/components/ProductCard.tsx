@@ -2,14 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ShoppingBag, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-interface Product {
-  id: number;
-  name: string;
-  category: string;
-  price: number;
-  image: string;
-}
+import type { Product } from "@/types/database";
+import { getOptimizedCloudinaryUrl } from "@/lib/cloudinary";
+import { useCart } from "@/contexts/CartContext";
 
 interface ProductCardProps {
   product: Product;
@@ -19,11 +14,12 @@ interface ProductCardProps {
 const ProductCard = ({ product, index }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const { addToCart } = useCart();
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-NG", {
       style: "currency",
-      currency: "USD",
+      currency: "NGN",
       minimumFractionDigits: 0,
     }).format(price);
   };
@@ -38,7 +34,16 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
       {/* Image Container */}
       <div className="relative aspect-square overflow-hidden bg-card rounded-sm mb-4">
         <img
-          src={product.image}
+          src={
+            product.images && product.images.length > 0
+              ? getOptimizedCloudinaryUrl(product.images[0], {
+                  width: 600,
+                  height: 600,
+                  crop: 'fill',
+                  quality: 'auto',
+                })
+              : '/placeholder.svg'
+          }
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
@@ -65,6 +70,10 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
             size="icon"
             variant="outline"
             className="h-12 w-12 rounded-full border-cream/40 bg-charcoal/50 backdrop-blur-sm hover:bg-cream hover:text-charcoal-deep hover:border-cream transition-all duration-300"
+            onClick={(e) => {
+              e.preventDefault();
+              addToCart(product.id, 1);
+            }}
           >
             <ShoppingBag className="h-5 w-5" />
           </Button>
@@ -76,7 +85,15 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
             isHovered ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
           }`}
         >
-          <Button variant="hero" className="w-full">
+          <Button 
+            variant="hero" 
+            className="w-full"
+            onClick={(e) => {
+              e.preventDefault();
+              addToCart(product.id, 1);
+            }}
+            disabled={product.stock <= 0}
+          >
             Add to Cart
           </Button>
         </div>

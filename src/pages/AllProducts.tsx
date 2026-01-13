@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/ProductCard';
@@ -11,149 +12,84 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { SlidersHorizontal } from 'lucide-react';
-import productWatch from '@/assets/product-watch.jpg';
-import productBag from '@/assets/product-bag.jpg';
-import productHeadphones from '@/assets/product-headphones.jpg';
-import productSunglasses from '@/assets/product-sunglasses.jpg';
-
-const allProducts = [
-	{
-		id: 1,
-		name: 'Signature Timepiece',
-		category: 'Watches',
-		price: 2499,
-		image: productWatch,
-	},
-	{
-		id: 2,
-		name: 'Executive Tote',
-		category: 'Bags',
-		price: 899,
-		image: productBag,
-	},
-	{
-		id: 3,
-		name: 'Studio Pro Max',
-		category: 'Audio',
-		price: 549,
-		image: productHeadphones,
-	},
-	{
-		id: 4,
-		name: 'Aviator Classic',
-		category: 'Eyewear',
-		price: 329,
-		image: productSunglasses,
-	},
-	{
-		id: 5,
-		name: 'Elite Chronograph',
-		category: 'Watches',
-		price: 3299,
-		image: productWatch,
-	},
-	{
-		id: 6,
-		name: 'Minimalist Backpack',
-		category: 'Bags',
-		price: 649,
-		image: productBag,
-	},
-	{
-		id: 7,
-		name: 'Wireless Studio',
-		category: 'Audio',
-		price: 449,
-		image: productHeadphones,
-	},
-	{
-		id: 8,
-		name: 'Retro Shades',
-		category: 'Eyewear',
-		price: 279,
-		image: productSunglasses,
-	},
-	{
-		id: 9,
-		name: 'Luxury Watch Collection',
-		category: 'Watches',
-		price: 1899,
-		image: productWatch,
-	},
-	{
-		id: 10,
-		name: 'Designer Handbag',
-		category: 'Bags',
-		price: 1299,
-		image: productBag,
-	},
-	{
-		id: 11,
-		name: 'Premium Headphones',
-		category: 'Audio',
-		price: 699,
-		image: productHeadphones,
-	},
-	{
-		id: 12,
-		name: 'Sunglasses Pro',
-		category: 'Eyewear',
-		price: 399,
-		image: productSunglasses,
-	},
-	{
-		id: 13,
-		name: 'Classic Timepiece',
-		category: 'Watches',
-		price: 1599,
-		image: productWatch,
-	},
-	{
-		id: 14,
-		name: 'Travel Bag',
-		category: 'Bags',
-		price: 799,
-		image: productBag,
-	},
-	{
-		id: 15,
-		name: 'Wireless Earbuds',
-		category: 'Audio',
-		price: 349,
-		image: productHeadphones,
-	},
-	{
-		id: 16,
-		name: 'Aviator Pro',
-		category: 'Eyewear',
-		price: 459,
-		image: productSunglasses,
-	},
-];
+import { supabase } from '@/lib/supabase';
+import type { Product, Category } from '@/types/database';
 
 const AllProducts = () => {
+	const [searchParams] = useSearchParams();
+	const searchQuery = searchParams.get('search') || '';
 	const [selectedCategory, setSelectedCategory] = useState<string>('all');
 	const [sortBy, setSortBy] = useState<string>('featured');
+	const [products, setProducts] = useState<Product[]>([]);
+	const [categories, setCategories] = useState<Category[]>([]);
+	const [loading, setLoading] = useState(true);
 
-	const categories = ['all', 'Watches', 'Bags', 'Audio', 'Eyewear'];
+	useEffect(() => {
+		const loadData = async () => {
+			try {
+				// Load categories
+				const { data: categoriesData } = await supabase
+					.from('categories')
+					.select('*')
+					.order('name', { ascending: true });
 
-	const filteredProducts =
-		selectedCategory === 'all'
-			? allProducts
-			: allProducts.filter((product) => product.category === selectedCategory);
+				setCategories(categoriesData || []);
 
-	const sortedProducts = [...filteredProducts].sort((a, b) => {
-		switch (sortBy) {
-			case 'price-low':
-				return a.price - b.price;
-			case 'price-high':
-				return b.price - a.price;
-			case 'name':
-				return a.name.localeCompare(b.name);
-			default:
-				return 0;
-		}
-	});
+				// Load products
+				let query = supabase.from('products').select('*');
+
+				// Apply category filter
+				if (selectedCategory !== 'all') {
+					query = query.eq('category', selectedCategory);
+				}
+
+				// Apply search filter
+				if (searchQuery) {
+					query = query.or(
+						`name.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+					);
+				} else {
+					// If no search query, just get all products (or filtered by category)
+				}
+
+				// Apply sorting
+				switch (sortBy) {
+					case 'price-low':
+						query = query.order('price', { ascending: true });
+						break;
+					case 'price-high':
+						query = query.order('price', { ascending: false });
+						break;
+					case 'name':
+						query = query.order('name', { ascending: true });
+						break;
+					case 'featured':
+					default:
+						query = query.order('featured', { ascending: false }).order('created_at', { ascending: false });
+						break;
+				}
+
+				const { data: productsData, error } = await query;
+
+				if (error) {
+					console.error('Error loading products:', error);
+					setProducts([]);
+				} else {
+					setProducts(productsData || []);
+				}
+			} catch (error) {
+				console.error('Error loading data:', error);
+				setProducts([]);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		loadData();
+	}, [selectedCategory, sortBy, searchQuery]);
+
+	// Filter products (client-side filtering for search is already done in query)
+	const filteredProducts = products;
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -184,18 +120,19 @@ const AllProducts = () => {
 							<div className="flex items-center gap-4">
 								<SlidersHorizontal className="h-5 w-5 text-muted-foreground" />
 								<span className="text-sm font-medium text-foreground">Filters:</span>
-								<Select value={selectedCategory} onValueChange={setSelectedCategory}>
-									<SelectTrigger className="w-[180px]">
-										<SelectValue placeholder="Category" />
-									</SelectTrigger>
-									<SelectContent>
-										{categories.map((category) => (
-											<SelectItem key={category} value={category}>
-												{category === 'all' ? 'All Categories' : category}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+							<Select value={selectedCategory} onValueChange={setSelectedCategory}>
+								<SelectTrigger className="w-[180px]">
+									<SelectValue placeholder="Category" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">All Categories</SelectItem>
+									{categories.map((category) => (
+										<SelectItem key={category.id} value={category.name}>
+											{category.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 							</div>
 
 							<div className="flex items-center gap-4">
@@ -221,14 +158,33 @@ const AllProducts = () => {
 					<div className="container mx-auto px-6">
 						<div className="mb-8">
 							<p className="text-sm text-muted-foreground">
-								Showing {sortedProducts.length} of {allProducts.length} products
-								{selectedCategory !== 'all' && ` in ${selectedCategory}`}
+								{loading ? (
+									<>Loading products...</>
+								) : searchQuery ? (
+									<>
+										Showing {filteredProducts.length} results for "{searchQuery}"
+									</>
+								) : (
+									<>
+										Showing {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
+										{selectedCategory !== 'all' && ` in ${selectedCategory}`}
+									</>
+								)}
 							</p>
 						</div>
 
-						{sortedProducts.length > 0 ? (
+						{loading ? (
 							<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-								{sortedProducts.map((product, index) => (
+								{[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+									<div
+										key={i}
+										className="aspect-square bg-card rounded-sm animate-pulse"
+									/>
+								))}
+							</div>
+						) : filteredProducts.length > 0 ? (
+							<div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+								{filteredProducts.map((product, index) => (
 									<ProductCard
 										key={product.id}
 										product={product}

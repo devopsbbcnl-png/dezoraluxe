@@ -1,18 +1,23 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const SignUp = () => {
+	const navigate = useNavigate();
+	const { signUp, signInWithGoogle, signInWithFacebook } = useAuth();
 	const [formData, setFormData] = useState({
 		name: '',
 		email: '',
 		password: '',
 		confirmPassword: '',
 	});
+	const [loading, setLoading] = useState(false);
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setFormData({
@@ -21,25 +26,51 @@ const SignUp = () => {
 		});
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		
 		// Validate passwords match
 		if (formData.password !== formData.confirmPassword) {
-			alert('Passwords do not match');
+			toast.error('Passwords do not match');
 			return;
 		}
-		// Handle sign up logic here
-		console.log('Sign up:', formData);
+
+		// Validate password length
+		if (formData.password.length < 8) {
+			toast.error('Password must be at least 8 characters');
+			return;
+		}
+
+		setLoading(true);
+
+		const { error } = await signUp(formData.email, formData.password, formData.name);
+
+		if (error) {
+			toast.error(error.message || 'Failed to sign up');
+		} else {
+			toast.success('Account created! Please check your email to verify your account.');
+			navigate('/signin');
+		}
+
+		setLoading(false);
 	};
 
-	const handleGoogleSignUp = () => {
-		// Handle Google sign up
-		console.log('Google sign up');
+	const handleGoogleSignUp = async () => {
+		setLoading(true);
+		const { error } = await signInWithGoogle();
+		if (error) {
+			toast.error(error.message || 'Failed to sign up with Google');
+			setLoading(false);
+		}
 	};
 
-	const handleFacebookSignUp = () => {
-		// Handle Facebook sign up
-		console.log('Facebook sign up');
+	const handleFacebookSignUp = async () => {
+		setLoading(true);
+		const { error } = await signInWithFacebook();
+		if (error) {
+			toast.error(error.message || 'Failed to sign up with Facebook');
+			setLoading(false);
+		}
 	};
 
 	return (
@@ -109,8 +140,8 @@ const SignUp = () => {
 											/>
 										</div>
 
-										<Button type="submit" className="w-full" variant="default">
-											Sign Up
+										<Button type="submit" className="w-full" variant="default" disabled={loading}>
+											{loading ? 'Creating account...' : 'Sign Up'}
 										</Button>
 									</form>
 
@@ -131,6 +162,7 @@ const SignUp = () => {
 											variant="outline"
 											className="w-full"
 											onClick={handleGoogleSignUp}
+											disabled={loading}
 										>
 											<svg
 												className="mr-2 h-4 w-4"
@@ -154,6 +186,7 @@ const SignUp = () => {
 											variant="outline"
 											className="w-full"
 											onClick={handleFacebookSignUp}
+											disabled={loading}
 										>
 											<svg
 												className="mr-2 h-4 w-4"

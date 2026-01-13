@@ -1,79 +1,47 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
-import productWatch from '@/assets/product-watch.jpg';
-import productBag from '@/assets/product-bag.jpg';
-import productHeadphones from '@/assets/product-headphones.jpg';
-
-interface CartItem {
-	id: number;
-	name: string;
-	category: string;
-	price: number;
-	image: string;
-	quantity: number;
-}
+import { useCart } from '@/contexts/CartContext';
+import { getOptimizedCloudinaryUrl } from '@/lib/cloudinary';
 
 const Cart = () => {
-	const [cartItems, setCartItems] = useState<CartItem[]>([
-		{
-			id: 1,
-			name: 'Signature Timepiece',
-			category: 'Watches',
-			price: 2499,
-			image: productWatch,
-			quantity: 1,
-		},
-		{
-			id: 2,
-			name: 'Executive Tote',
-			category: 'Bags',
-			price: 899,
-			image: productBag,
-			quantity: 2,
-		},
-		{
-			id: 3,
-			name: 'Studio Pro Max',
-			category: 'Audio',
-			price: 549,
-			image: productHeadphones,
-			quantity: 1,
-		},
-	]);
+	const navigate = useNavigate();
+	const { cartItems, loading, updateQuantity, removeFromCart } = useCart();
 
 	const formatPrice = (price: number) => {
-		return new Intl.NumberFormat('en-US', {
+		return new Intl.NumberFormat('en-NG', {
 			style: 'currency',
-			currency: 'USD',
+			currency: 'NGN',
 			minimumFractionDigits: 0,
 		}).format(price);
 	};
 
-	const updateQuantity = (id: number, change: number) => {
-		setCartItems((items) =>
-			items.map((item) =>
-				item.id === id
-					? { ...item, quantity: Math.max(1, item.quantity + change) }
-					: item
-			)
-		);
-	};
+	const handleQuantityChange = (cartItemId: string, change: number) => {
+		const item = cartItems.find((item) => item.id === cartItemId);
+		if (!item || !item.product) return;
 
-	const removeItem = (id: number) => {
-		setCartItems((items) => items.filter((item) => item.id !== id));
+		const currentQuantity = item.quantity;
+		const newQuantity = currentQuantity + change;
+
+		// Don't allow quantity below 1 (use remove button instead)
+		if (newQuantity < 1) return;
+
+		// Don't allow quantity above stock
+		if (newQuantity > item.product.stock) return;
+
+		updateQuantity(cartItemId, newQuantity);
 	};
 
 	const subtotal = cartItems.reduce(
-		(sum, item) => sum + item.price * item.quantity,
+		(sum, item) => sum + (item.product?.price || 0) * item.quantity,
 		0
 	);
-	const shipping = subtotal > 200 ? 0 : 15;
-	const tax = subtotal * 0.08;
+	const shipping = subtotal > 20000 ? 0 : 1500; // Free shipping over ₦20,000
+	const tax = subtotal * 0.08; // 8% tax
 	const total = subtotal + shipping + tax;
 
 	return (
@@ -97,83 +65,111 @@ const Cart = () => {
 				{/* Cart Content */}
 				<section className="py-16 md:py-24">
 					<div className="container mx-auto px-6">
-						{cartItems.length > 0 ? (
+						{loading ? (
+							<div className="text-center py-16">
+								<p className="text-muted-foreground">Loading cart...</p>
+							</div>
+						) : cartItems.length > 0 ? (
 							<div className="grid lg:grid-cols-3 gap-8">
 								{/* Cart Items */}
 								<div className="lg:col-span-2 space-y-4">
-									{cartItems.map((item) => (
-										<Card key={item.id} className="border-border">
-											<CardContent className="p-6">
-												<div className="flex gap-6">
-													{/* Product Image */}
-													<Link
-														to={`/product/${item.id}`}
-														className="flex-shrink-0"
-													>
-														<img
-															src={item.image}
-															alt={item.name}
-															className="w-24 h-24 object-cover rounded-sm"
-														/>
-													</Link>
+									{cartItems.map((item) => {
+										if (!item.product) return null;
+										
+										return (
+											<Card key={item.id} className="border-border">
+												<CardContent className="p-6">
+													<div className="flex gap-6">
+														{/* Product Image */}
+														<Link
+															to={`/product/${item.product.id}`}
+															className="flex-shrink-0"
+														>
+															<img
+																src={
+																	item.product.images && item.product.images.length > 0
+																		? getOptimizedCloudinaryUrl(item.product.images[0], {
+																				width: 200,
+																				height: 200,
+																				crop: 'fill',
+																				quality: 'auto',
+																			})
+																		: '/placeholder.svg'
+																}
+																alt={item.product.name}
+																className="w-24 h-24 object-cover rounded-sm"
+															/>
+														</Link>
 
-													{/* Product Details */}
-													<div className="flex-1 flex flex-col justify-between">
-														<div>
-															<Link
-																to={`/product/${item.id}`}
-																className="hover:text-gold transition-colors"
-															>
-																<h3 className="font-semibold text-lg mb-1">
-																	{item.name}
-																</h3>
-															</Link>
-															<p className="text-sm text-muted-foreground mb-2">
-																{item.category}
-															</p>
-															<p className="text-lg font-semibold text-gradient-gold">
-																{formatPrice(item.price)}
-															</p>
-														</div>
-
-														{/* Quantity Controls */}
-														<div className="flex items-center justify-between mt-4">
-															<div className="flex items-center gap-3">
-																<Button
-																	variant="outline"
-																	size="icon"
-																	className="h-8 w-8"
-																	onClick={() => updateQuantity(item.id, -1)}
+														{/* Product Details */}
+														<div className="flex-1 flex flex-col justify-between">
+															<div>
+																<Link
+																	to={`/product/${item.product.id}`}
+																	className="hover:text-gold transition-colors"
 																>
-																	<Minus className="h-4 w-4" />
-																</Button>
-																<span className="w-12 text-center font-medium">
-																	{item.quantity}
-																</span>
-																<Button
-																	variant="outline"
-																	size="icon"
-																	className="h-8 w-8"
-																	onClick={() => updateQuantity(item.id, 1)}
-																>
-																	<Plus className="h-4 w-4" />
-																</Button>
+																	<h3 className="font-semibold text-lg mb-1">
+																		{item.product.name}
+																	</h3>
+																</Link>
+																<p className="text-sm text-muted-foreground mb-2">
+																	{item.product.category}
+																</p>
+																<p className="text-lg font-semibold text-gradient-gold">
+																	{formatPrice(item.product.price)}
+																</p>
 															</div>
 
-															<Button
-																variant="ghost"
-																size="icon"
-																onClick={() => removeItem(item.id)}
-																className="text-destructive hover:text-destructive"
-															>
-																<Trash2 className="h-5 w-5" />
-															</Button>
+															{/* Quantity Controls */}
+															<div className="flex items-center justify-between mt-4">
+																<div className="flex items-center gap-3">
+																	<Button
+																		variant="outline"
+																		size="icon"
+																		className="h-8 w-8"
+																		onClick={() => handleQuantityChange(item.id, -1)}
+																		disabled={item.quantity <= 1}
+																		title="Decrease quantity"
+																	>
+																		<Minus className="h-4 w-4" />
+																	</Button>
+																	<span className="w-12 text-center font-medium">
+																		{item.quantity}
+																	</span>
+																	<Button
+																		variant="outline"
+																		size="icon"
+																		className="h-8 w-8"
+																		onClick={() => handleQuantityChange(item.id, 1)}
+																		disabled={
+																			!item.product ||
+																			item.quantity >= item.product.stock
+																		}
+																		title={
+																			item.quantity >= (item.product?.stock || 0)
+																				? 'Maximum stock reached'
+																				: 'Increase quantity'
+																		}
+																	>
+																		<Plus className="h-4 w-4" />
+																	</Button>
+																</div>
+
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	onClick={() => removeFromCart(item.id)}
+																	className="text-destructive hover:text-destructive"
+																>
+																	<Trash2 className="h-5 w-5" />
+																</Button>
+															</div>
 														</div>
 													</div>
-												</div>
-											</CardContent>
-										</Card>
-									))}
+												</CardContent>
+											</Card>
+										);
+									})}
 								</div>
 
 								{/* Order Summary */}
@@ -206,9 +202,9 @@ const Cart = () => {
 													<span className="text-muted-foreground">Tax</span>
 													<span>{formatPrice(tax)}</span>
 												</div>
-												{subtotal < 200 && (
+												{subtotal < 20000 && (
 													<p className="text-xs text-muted-foreground pt-2">
-														Add {formatPrice(200 - subtotal)} more for free
+														Add {formatPrice(20000 - subtotal)} more for free
 														shipping
 													</p>
 												)}
@@ -221,11 +217,29 @@ const Cart = () => {
 														{formatPrice(total)}
 													</span>
 												</div>
-												<Link to="/checkout">
-													<Button variant="hero" className="w-full" size="lg">
-														Proceed to Checkout
-													</Button>
-												</Link>
+												<Button 
+													variant="hero" 
+													className="w-full" 
+													size="lg"
+													onClick={() => {
+														navigate('/checkout', {
+															state: {
+																cartItems: cartItems.map(item => ({
+																	id: item.id,
+																	product_id: item.product_id,
+																	product: item.product,
+																	quantity: item.quantity,
+																})),
+																subtotal,
+																shipping,
+																tax,
+																total,
+															}
+														});
+													}}
+												>
+													Proceed to Checkout
+												</Button>
 											</div>
 
 											<Link
