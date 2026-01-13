@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Navbar from '@/components/layout/Navbar';
+import Navbar from '@/components/layout/NavBar';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';

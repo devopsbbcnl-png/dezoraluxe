@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Navbar from "@/components/layout/Navbar";
+import Navbar from "@/components/layout/NavBar";
 import Footer from "@/components/layout/Footer";
 import ProductCard from "@/components/ProductCard";
 import { supabase } from "@/lib/supabase";

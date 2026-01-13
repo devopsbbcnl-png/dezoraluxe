@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "@/components/layout/Navbar";
+import Navbar from "@/components/layout/NavBar";
 import Footer from "@/components/layout/Footer";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
