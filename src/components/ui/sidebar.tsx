@@ -5,6 +5,7 @@ import { PanelLeft } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { setCookie } from "@/lib/cookies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -65,7 +66,9 @@ const SidebarProvider = React.forwardRef<
       }
 
       // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      // This is an essential cookie, so it's always allowed
+      const days = Math.floor(SIDEBAR_COOKIE_MAX_AGE / (60 * 60 * 24));
+      setCookie(SIDEBAR_COOKIE_NAME, String(openState), days, 'essential');
     },
     [setOpenProp, open],
   );

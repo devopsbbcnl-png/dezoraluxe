@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
+import { CookieBanner } from "@/components/CookieBanner";
+import { CookiePreferencesDialog } from "@/components/CookiePreferences";
 import Index from "./pages/Index";
 import NewArrivals from "./pages/NewArrivals";
 import Collections from "./pages/Collections";
@@ -39,9 +42,12 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <CartProvider>
-            <Routes>
+        <CookieConsentProvider>
+          <AuthProvider>
+            <CartProvider>
+              <CookieBanner />
+              <CookiePreferencesDialog />
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/new-arrivals" element={<NewArrivals />} />
               <Route path="/collections" element={<Collections />} />
@@ -68,9 +74,10 @@ const App = () => (
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </CartProvider>
-        </AuthProvider>
+              </Routes>
+            </CartProvider>
+          </AuthProvider>
+        </CookieConsentProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

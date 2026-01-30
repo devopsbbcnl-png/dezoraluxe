@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
+import { useCookieConsent } from "@/contexts/CookieConsentContext";
 
 const Footer = () => {
+    const { openPreferences } = useCookieConsent();
+    
     const footerLinks = {
       Shop: ["New Arrivals", "Best Sellers", "Collections", "Sale"],
       Help: ["FAQ", "Shipping", "Returns", "Contact"],
       Company: ["About Us", "Careers", "Press", "Sustainability"],
-      Legal: ["Privacy Policy", "Terms of Service", "Cookie Policy"],
+      Legal: ["Privacy Policy", "Terms of Service", "Cookie Policy", "Cookie Preferences"],
     };
 
     const getLinkPath = (category: string, link: string): string => {
@@ -13,11 +16,19 @@ const Footer = () => {
         if (link === "Privacy Policy") return "/privacy-policy";
         if (link === "Terms of Service") return "/terms-of-service";
         if (link === "Cookie Policy") return "/cookies-policy";
+        if (link === "Cookie Preferences") return "#"; // Special case - handled by onClick
       }
       if (category === "Company" && link === "About Us") {
         return "/about";
       }
       return "#";
+    };
+
+    const handleLinkClick = (category: string, link: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (category === "Legal" && link === "Cookie Preferences") {
+        e.preventDefault();
+        openPreferences();
+      }
     };
   
     return (
@@ -59,10 +70,12 @@ const Footer = () => {
                 <ul className="space-y-3">
                   {links.map((link) => {
                     const path = getLinkPath(title, link);
+                    const isCookiePreferences = title === "Legal" && link === "Cookie Preferences";
                     return (
                       <li key={link}>
                         <Link
                           to={path}
+                          onClick={(e) => handleLinkClick(title, link, e)}
                           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                         >
                           {link}
