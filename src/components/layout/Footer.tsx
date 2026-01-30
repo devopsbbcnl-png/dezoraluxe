@@ -1,9 +1,23 @@
+import { Link } from "react-router-dom";
+
 const Footer = () => {
     const footerLinks = {
       Shop: ["New Arrivals", "Best Sellers", "Collections", "Sale"],
       Help: ["FAQ", "Shipping", "Returns", "Contact"],
       Company: ["About Us", "Careers", "Press", "Sustainability"],
       Legal: ["Privacy Policy", "Terms of Service", "Cookie Policy"],
+    };
+
+    const getLinkPath = (category: string, link: string): string => {
+      if (category === "Legal") {
+        if (link === "Privacy Policy") return "/privacy-policy";
+        if (link === "Terms of Service") return "/terms-of-service";
+        if (link === "Cookie Policy") return "/cookies-policy";
+      }
+      if (category === "Company" && link === "About Us") {
+        return "/about";
+      }
+      return "#";
     };
   
     return (
@@ -43,16 +57,19 @@ const Footer = () => {
               <div key={title}>
                 <h4 className="font-medium text-foreground mb-4">{title}</h4>
                 <ul className="space-y-3">
-                  {links.map((link) => (
-                    <li key={link}>
-                      <a
-                        href="#"
-                        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {link}
-                      </a>
-                    </li>
-                  ))}
+                  {links.map((link) => {
+                    const path = getLinkPath(title, link);
+                    return (
+                      <li key={link}>
+                        <Link
+                          to={path}
+                          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {link}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}

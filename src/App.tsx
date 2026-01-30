@@ -26,6 +26,9 @@ import AccountProfile from "./pages/AccountProfile";
 import Settings from "./pages/Settings";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import CookiesPolicy from "./pages/CookiesPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -58,6 +61,9 @@ const App = () => (
               <Route path="/orders" element={<OrderHistory />} />
               <Route path="/profile" element={<AccountProfile />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/cookies-policy" element={<CookiesPolicy />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
