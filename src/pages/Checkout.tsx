@@ -61,7 +61,7 @@ const deliveryMethods: DeliveryMethod[] = [
 	},
 	{
 		id: 'abuja',
-		name: '*Locations Within Abuja',
+		name: '* Locations Within Abuja',
 		company: 'Local Delivery',
 		price: 3000,
 		estimatedDays: 'Within Abuja',
