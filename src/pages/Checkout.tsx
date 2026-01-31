@@ -115,6 +115,7 @@ const Checkout = () => {
 	const [showNewAddressForm, setShowNewAddressForm] = useState(false);
 	const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
 	const [isSavingAddress, setIsSavingAddress] = useState(false);
+	const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
 
 	// Load saved addresses
 	const loadSavedAddresses = async () => {
@@ -318,7 +319,7 @@ const Checkout = () => {
 		deliveryMethods.find((method) => method.id === selectedDelivery) ||
 		deliveryMethods[0];
 	const shipping = locationState?.shipping ?? selectedDeliveryMethod.price;
-	const tax = locationState?.tax ?? subtotal * 0.08;
+	const tax = 0; // 0% tax
 	const total = locationState?.total ?? subtotal + shipping + tax;
 
 	// Redirect to cart if no items
@@ -439,7 +440,7 @@ const Checkout = () => {
 		setCurrentStage('payment');
 	};
 
-	const createOrder = async (paymentReference: string) => {
+	const createOrder = async (paymentReference: string | null = null) => {
 		try {
 			// Generate order number using RPC function or fallback
 			let orderNumber: string;
@@ -509,12 +510,33 @@ const Checkout = () => {
 				throw itemsError;
 			}
 
-			// Clear cart after successful order creation
-			await clearCart();
-
 			return orderData;
 		} catch (error) {
 			console.error('Error creating order:', error);
+			throw error;
+		}
+	};
+
+	const updateOrderStatus = async (orderId: string, paymentReference: string, status: string = 'processing') => {
+		try {
+			const { data, error } = await supabase
+				.from('orders')
+				.update({
+					status,
+					payment_reference: paymentReference,
+					updated_at: new Date().toISOString(),
+				})
+				.eq('id', orderId)
+				.select()
+				.single();
+
+			if (error) {
+				throw error;
+			}
+
+			return data;
+		} catch (error) {
+			console.error('Error updating order:', error);
 			throw error;
 		}
 	};
@@ -525,6 +547,21 @@ const Checkout = () => {
 		setIsProcessingPayment(true);
 
 		try {
+			// Create order before payment with pending status
+			let order;
+			try {
+				order = await createOrder(null); // Create order without payment reference first
+				setPendingOrderId(order.id);
+				toast.success('Order created. Processing payment...');
+			} catch (error) {
+				console.error('Error creating order:', error);
+				const errorMessage =
+					error instanceof Error ? error.message : 'Unknown error';
+				toast.error('Failed to create order. Please try again.');
+				setIsProcessingPayment(false);
+				return;
+			}
+
 			const email = user?.email || guestEmail || shippingInfo.email;
 			const reference = generatePaystackReference();
 
@@ -558,17 +595,24 @@ const Checkout = () => {
 					],
 				},
 				async (response) => {
-					// Payment successful - create order
+					// Payment successful - update order status
 					try {
-						const order = await createOrder(response.reference);
+						const updatedOrder = await updateOrderStatus(
+							order.id,
+							response.reference,
+							'processing'
+						);
 
-						toast.success('Payment successful! Order created.');
+						// Clear cart after successful payment
+						await clearCart();
+
+						toast.success('Payment successful! Order confirmed.');
 
 						// Navigate to order confirmation with order details
 						navigate('/order-confirmation', {
 							state: {
-								orderId: order.id,
-								orderNumber: order.order_number,
+								orderId: updatedOrder.id,
+								orderNumber: updatedOrder.order_number,
 								orderReference: reference,
 								paymentReference: response.reference,
 								shippingInfo,
@@ -578,18 +622,29 @@ const Checkout = () => {
 							},
 						});
 					} catch (error) {
-						console.error('Error creating order:', error);
+						console.error('Error updating order:', error);
 						const errorMessage =
 							error instanceof Error ? error.message : 'Unknown error';
 						toast.error(
-							'Payment successful but failed to create order. Please contact support with reference: ' +
+							'Payment successful but failed to update order. Please contact support with reference: ' +
 								response.reference
 						);
 						setIsProcessingPayment(false);
 					}
 				},
-				() => {
-					// Payment cancelled
+				async () => {
+					// Payment cancelled - delete the pending order
+					if (order?.id) {
+						try {
+							// Delete order items first (due to foreign key constraints)
+							await supabase.from('order_items').delete().eq('order_id', order.id);
+							// Then delete the order
+							await supabase.from('orders').delete().eq('id', order.id);
+							setPendingOrderId(null);
+						} catch (error) {
+							console.error('Error deleting pending order:', error);
+						}
+					}
 					toast.error('Payment was cancelled');
 					setIsProcessingPayment(false);
 				}
@@ -597,6 +652,18 @@ const Checkout = () => {
 		} catch (error) {
 			console.error('Payment error:', error);
 			toast.error('An error occurred while processing payment');
+			// Clean up pending order if it was created
+			if (pendingOrderId) {
+				try {
+					// Delete order items first (due to foreign key constraints)
+					await supabase.from('order_items').delete().eq('order_id', pendingOrderId);
+					// Then delete the order
+					await supabase.from('orders').delete().eq('id', pendingOrderId);
+					setPendingOrderId(null);
+				} catch (cleanupError) {
+					console.error('Error cleaning up pending order:', cleanupError);
+				}
+			}
 			setIsProcessingPayment(false);
 		}
 	};

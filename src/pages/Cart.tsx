@@ -40,8 +40,8 @@ const Cart = () => {
 		(sum, item) => sum + (item.product?.price || 0) * item.quantity,
 		0
 	);
-	const shipping = subtotal > 20000 ? 0 : 1500; // Free shipping over ₦20,000
-	const tax = subtotal * 0.08; // 8% tax
+	const shipping = 0; // Shipping will be calculated in checkout based on selected delivery method
+	const tax = 0; // 0% tax
 	const total = subtotal + shipping + tax;
 
 	return (
@@ -190,24 +190,14 @@ const Cart = () => {
 													<span className="text-muted-foreground">
 														Shipping
 													</span>
-													<span>
-														{shipping === 0 ? (
-															<span className="text-gold">Free</span>
-														) : (
-															formatPrice(shipping)
-														)}
+													<span className="text-muted-foreground">
+														Calculated at checkout
 													</span>
 												</div>
 												<div className="flex justify-between text-sm">
 													<span className="text-muted-foreground">Tax</span>
 													<span>{formatPrice(tax)}</span>
 												</div>
-												{subtotal < 20000 && (
-													<p className="text-xs text-muted-foreground pt-2">
-														Add {formatPrice(20000 - subtotal)} more for free
-														shipping
-													</p>
-												)}
 											</div>
 
 											<div className="border-t border-border pt-4">
