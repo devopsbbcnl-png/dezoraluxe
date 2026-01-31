@@ -36,7 +36,7 @@ export interface User {
 
 export interface Order {
 	id: string;
-	user_id: string;
+	user_id: string | null;
 	order_number: string;
 	total_amount: number;
 	status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
@@ -48,6 +48,8 @@ export interface Order {
 		zip_code: string;
 		country: string;
 	};
+	payment_reference?: string | null;
+	delivery_method?: string | null;
 	created_at: string;
 	updated_at: string;
 }

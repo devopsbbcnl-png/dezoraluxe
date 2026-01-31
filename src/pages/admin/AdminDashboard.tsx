@@ -16,6 +16,13 @@ import {
 	TableHeader,
 	TableRow,
 } from '@/components/ui/table';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+} from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -51,6 +58,8 @@ import {
 	Palette,
 	Shield,
 	Database,
+	Eye,
+	X,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -77,7 +86,8 @@ import {
 } from '@/lib/notifications';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import { useSystemInfo } from '@/hooks/useSystemInfo';
-import type { Product, Order, Subscriber } from '@/types/database';
+import type { Product, Order, Subscriber, OrderItem } from '@/types/database';
+import { getOptimizedCloudinaryUrl } from '@/lib/cloudinary';
 
 const AdminDashboard = () => {
 	const navigate = useNavigate();
@@ -130,6 +140,12 @@ const AdminDashboard = () => {
 	const [adminActionsLoading, setAdminActionsLoading] = useState<
 		Record<string, boolean>
 	>({});
+	const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+	const [orderItems, setOrderItems] = useState<
+		Array<OrderItem & { product?: Product }>
+	>([]);
+	const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+	const [loadingOrderItems, setLoadingOrderItems] = useState(false);
 
 	useEffect(() => {
 		const verifyAdminAccess = async () => {
@@ -585,6 +601,53 @@ const AdminDashboard = () => {
 		}
 	};
 
+	const loadOrderItems = async (orderId: string) => {
+		setLoadingOrderItems(true);
+		try {
+			// Fetch order items with product details
+			const { data: itemsData, error: itemsError } = await supabase
+				.from('order_items')
+				.select('*')
+				.eq('order_id', orderId);
+
+			if (itemsError) throw itemsError;
+
+			// Fetch product details for each item
+			const itemsWithProducts = await Promise.all(
+				(itemsData || []).map(async (item) => {
+					const { data: productData, error: productError } = await supabase
+						.from('products')
+						.select('*')
+						.eq('id', item.product_id)
+						.single();
+
+					if (productError) {
+						console.error('Error loading product:', productError);
+					}
+
+					return {
+						...item,
+						product: productData || undefined,
+					};
+				})
+			);
+
+			setOrderItems(itemsWithProducts);
+		} catch (error) {
+			console.error('Error loading order items:', error);
+			toast.error('Failed to load order items');
+			setOrderItems([]);
+		} finally {
+			setLoadingOrderItems(false);
+		}
+	};
+
+	const handleViewOrder = async (order: Order) => {
+		setSelectedOrder(order);
+		setIsOrderModalOpen(true);
+		await loadOrderItems(order.id);
+	};
+
 	const handleSaveSettings = async () => {
 		setSettingsLoading(true);
 		try {
@@ -974,7 +1037,12 @@ const AdminDashboard = () => {
 														)}
 													</TableCell>
 													<TableCell className="text-right">
-														<Button variant="ghost" size="sm">
+														<Button
+															variant="ghost"
+															size="sm"
+															onClick={() => handleViewOrder(order)}
+														>
+															<Eye className="mr-2 h-4 w-4" />
 															View
 														</Button>
 													</TableCell>
@@ -1753,6 +1821,203 @@ const AdminDashboard = () => {
 					loadStats();
 				}}
 			/>
+
+			{/* Order Details Modal */}
+			<Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
+				<DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle>Order Details</DialogTitle>
+						<DialogDescription>
+							Order #{selectedOrder?.order_number || 'N/A'}
+						</DialogDescription>
+					</DialogHeader>
+
+					{selectedOrder && (
+						<div className="space-y-6">
+							{/* Order Information */}
+							<div className="grid md:grid-cols-2 gap-4">
+								<Card className="border-border">
+									<CardHeader>
+										<CardTitle className="text-lg">Order Information</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-2">
+										<div className="flex justify-between">
+											<span className="text-muted-foreground">Order Number:</span>
+											<span className="font-medium">{selectedOrder.order_number}</span>
+										</div>
+										<div className="flex justify-between">
+											<span className="text-muted-foreground">Status:</span>
+											<span
+												className={`px-2 py-1 rounded-full text-xs ${
+													selectedOrder.status === 'delivered'
+														? 'bg-green-500/20 text-green-500'
+														: selectedOrder.status === 'shipped'
+														? 'bg-blue-500/20 text-blue-500'
+														: selectedOrder.status === 'processing'
+														? 'bg-yellow-500/20 text-yellow-500'
+														: 'bg-gray-500/20 text-gray-500'
+												}`}
+											>
+												{selectedOrder.status}
+											</span>
+										</div>
+										<div className="flex justify-between">
+											<span className="text-muted-foreground">Date:</span>
+											<span className="font-medium">
+												{formatDate(
+													selectedOrder.created_at,
+													settings.display.dateFormat
+												)}
+											</span>
+										</div>
+										{selectedOrder.payment_reference && (
+											<div className="flex justify-between">
+												<span className="text-muted-foreground">Payment Ref:</span>
+												<span className="font-medium text-sm">
+													{selectedOrder.payment_reference}
+												</span>
+											</div>
+										)}
+										{selectedOrder.delivery_method && (
+											<div className="flex justify-between">
+												<span className="text-muted-foreground">Delivery:</span>
+												<span className="font-medium">
+													{selectedOrder.delivery_method}
+												</span>
+											</div>
+										)}
+									</CardContent>
+								</Card>
+
+								<Card className="border-border">
+									<CardHeader>
+										<CardTitle className="text-lg">Shipping Address</CardTitle>
+									</CardHeader>
+									<CardContent className="space-y-1">
+										{typeof selectedOrder.shipping_address === 'object' &&
+										selectedOrder.shipping_address ? (
+											<>
+												<p className="font-medium">
+													{selectedOrder.shipping_address.name}
+												</p>
+												<p className="text-sm text-muted-foreground">
+													{selectedOrder.shipping_address.address}
+												</p>
+												<p className="text-sm text-muted-foreground">
+													{selectedOrder.shipping_address.city},{' '}
+													{selectedOrder.shipping_address.state}
+												</p>
+												<p className="text-sm text-muted-foreground">
+													{selectedOrder.shipping_address.zip_code}
+												</p>
+												<p className="text-sm text-muted-foreground">
+													{selectedOrder.shipping_address.country}
+												</p>
+											</>
+										) : (
+											<p className="text-sm text-muted-foreground">
+												No shipping address available
+											</p>
+										)}
+									</CardContent>
+								</Card>
+							</div>
+
+							{/* Order Items */}
+							<Card className="border-border">
+								<CardHeader>
+									<CardTitle className="text-lg">Order Items</CardTitle>
+								</CardHeader>
+								<CardContent>
+									{loadingOrderItems ? (
+										<div className="flex items-center justify-center py-8">
+											<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+										</div>
+									) : orderItems.length === 0 ? (
+										<p className="text-center py-8 text-muted-foreground">
+											No items found for this order
+										</p>
+									) : (
+										<div className="space-y-4">
+											{orderItems.map((item) => (
+												<div
+													key={item.id}
+													className="flex gap-4 p-4 border border-border rounded-lg"
+												>
+													{item.product?.images &&
+													item.product.images.length > 0 ? (
+														<img
+															src={getOptimizedCloudinaryUrl(
+																item.product.images[0],
+																{
+																	width: 100,
+																	height: 100,
+																	crop: 'fill',
+																	quality: 'auto',
+																}
+															)}
+															alt={item.product.name}
+															className="w-20 h-20 object-cover rounded-sm"
+														/>
+													) : (
+														<div className="w-20 h-20 bg-card rounded-sm flex items-center justify-center">
+															<Package className="h-8 w-8 text-muted-foreground" />
+														</div>
+													)}
+													<div className="flex-1">
+														<p className="font-medium">
+															{item.product?.name || 'Product not found'}
+														</p>
+														<p className="text-sm text-muted-foreground">
+															Quantity: {item.quantity}
+														</p>
+														<p className="text-sm text-muted-foreground">
+															Price: {formatPrice(item.price)} each
+														</p>
+													</div>
+													<div className="text-right">
+														<p className="font-semibold text-lg">
+															{formatPrice(item.price * item.quantity)}
+														</p>
+													</div>
+												</div>
+											))}
+										</div>
+									)}
+								</CardContent>
+							</Card>
+
+							{/* Order Summary */}
+							<Card className="border-border">
+								<CardHeader>
+									<CardTitle className="text-lg">Order Summary</CardTitle>
+								</CardHeader>
+								<CardContent>
+									<div className="space-y-2">
+										<div className="flex justify-between">
+											<span className="text-muted-foreground">Subtotal:</span>
+											<span>
+												{formatPrice(
+													orderItems.reduce(
+														(sum, item) => sum + item.price * item.quantity,
+														0
+													)
+												)}
+											</span>
+										</div>
+										<div className="flex justify-between">
+											<span className="text-muted-foreground">Total:</span>
+											<span className="text-lg font-bold text-gradient-gold">
+												{formatPrice(Number(selectedOrder.total_amount))}
+											</span>
+										</div>
+									</div>
+								</CardContent>
+							</Card>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 };
