@@ -134,3 +134,21 @@ export interface Category {
 	updated_at: string;
 }
 
+export type AnalyticsEventName =
+	| 'visit'
+	| 'add_to_cart'
+	| 'checkout_started'
+	| 'paid_order';
+
+export interface AnalyticsEvent {
+	id: string;
+	event_name: AnalyticsEventName;
+	session_id: string;
+	user_id: string | null;
+	product_id: string | null;
+	order_id: string | null;
+	path: string | null;
+	metadata: Record<string, unknown> | null;
+	created_at: string;
+}
+

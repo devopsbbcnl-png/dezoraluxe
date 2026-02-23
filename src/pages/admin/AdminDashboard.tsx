@@ -91,7 +91,7 @@ import {
 } from '@/lib/notifications';
 import { useSessionTimeout } from '@/hooks/useSessionTimeout';
 import { useSystemInfo } from '@/hooks/useSystemInfo';
-import type { Product, Order, Subscriber, OrderItem } from '@/types/database';
+import type { Product, Order, Subscriber, OrderItem, AnalyticsEvent } from '@/types/database';
 import { getOptimizedCloudinaryUrl } from '@/lib/cloudinary';
 import {
 	Sheet,
@@ -160,6 +160,7 @@ const AdminDashboard = () => {
 	const [analyticsProducts, setAnalyticsProducts] = useState<Product[]>([]);
 	const [analyticsOrders, setAnalyticsOrders] = useState<Order[]>([]);
 	const [analyticsOrderItems, setAnalyticsOrderItems] = useState<OrderItem[]>([]);
+	const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEvent[]>([]);
 	const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 	const [loadingOrderItems, setLoadingOrderItems] = useState(false);
 	const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -425,11 +426,12 @@ const AdminDashboard = () => {
 	const loadAnalyticsData = async () => {
 		setAnalyticsLoading(true);
 		try {
-			const [{ data: productsData, error: productsError }, { data: ordersData, error: ordersError }, { data: orderItemsData, error: orderItemsError }] =
+			const [{ data: productsData, error: productsError }, { data: ordersData, error: ordersError }, { data: orderItemsData, error: orderItemsError }, { data: eventsData, error: eventsError }] =
 				await Promise.all([
 					supabase.from('products').select('*'),
 					supabase.from('orders').select('*'),
 					supabase.from('order_items').select('*'),
+					supabase.from('analytics_events').select('*'),
 				]);
 
 			if (productsError) throw productsError;
@@ -439,12 +441,19 @@ const AdminDashboard = () => {
 			setAnalyticsProducts((productsData || []) as Product[]);
 			setAnalyticsOrders((ordersData || []) as Order[]);
 			setAnalyticsOrderItems((orderItemsData || []) as OrderItem[]);
+			if (eventsError) {
+				console.warn('analytics_events not available:', eventsError.message);
+				setAnalyticsEvents([]);
+			} else {
+				setAnalyticsEvents((eventsData || []) as AnalyticsEvent[]);
+			}
 		} catch (error) {
 			console.error('Error loading analytics data:', error);
 			toast.error('Failed to load analytics data');
 			setAnalyticsProducts([]);
 			setAnalyticsOrders([]);
 			setAnalyticsOrderItems([]);
+			setAnalyticsEvents([]);
 		} finally {
 			setAnalyticsLoading(false);
 		}
@@ -1219,12 +1228,37 @@ const AdminDashboard = () => {
 			.sort((a, b) => (a.cohort < b.cohort ? 1 : -1))
 			.slice(0, 12);
 
+		const eventsInRange = analyticsEvents.filter((event) =>
+			isWithinRange(event.created_at, analyticsRange.start, analyticsRange.end)
+		);
+		const visitSessions = new Set(
+			eventsInRange
+				.filter((event) => event.event_name === 'visit')
+				.map((event) => event.session_id)
+		);
+		const addToCartSessions = new Set(
+			eventsInRange
+				.filter((event) => event.event_name === 'add_to_cart')
+				.map((event) => event.session_id)
+		);
+		const checkoutSessions = new Set(
+			eventsInRange
+				.filter((event) => event.event_name === 'checkout_started')
+				.map((event) => event.session_id)
+		);
+		const paidOrderEvents = eventsInRange.filter(
+			(event) => event.event_name === 'paid_order'
+		);
+
 		const conversionFunnel = {
-			visits: 0,
-			addToCart: 0,
-			checkoutStarted: rangeOrders.length,
-			paidOrders: validOrders.length,
-			note: 'Add analytics_events table to track visits/add-to-cart.',
+			visits: visitSessions.size,
+			addToCart: addToCartSessions.size,
+			checkoutStarted: checkoutSessions.size || rangeOrders.length,
+			paidOrders: paidOrderEvents.length || validOrders.length,
+			note:
+				analyticsEvents.length > 0
+					? 'Funnel metrics are based on tracked live events.'
+					: 'analytics_events table not detected. Run the SQL setup file to enable full funnel tracking.',
 		};
 
 		return {
@@ -1270,6 +1304,7 @@ const AdminDashboard = () => {
 		analyticsProducts,
 		analyticsOrders,
 		analyticsOrderItems,
+		analyticsEvents,
 		analyticsRange,
 		reorderPoint,
 		targetStockLevel,

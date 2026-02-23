@@ -35,6 +35,7 @@ import { supabase } from '@/lib/supabase';
 import { ShippingAddress } from '@/types/database';
 import { toast } from 'sonner';
 import { getOptimizedCloudinaryUrl } from '@/lib/cloudinary';
+import { trackAnalyticsEvent } from '@/lib/analytics';
 
 interface DeliveryMethod {
 	id: string;
@@ -116,6 +117,7 @@ const Checkout = () => {
 	const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
 	const [isSavingAddress, setIsSavingAddress] = useState(false);
 	const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+	const [checkoutTracked, setCheckoutTracked] = useState(false);
 
 	// Load saved addresses
 	const loadSavedAddresses = async () => {
@@ -332,6 +334,20 @@ const Checkout = () => {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [cartItems.length, navigate]);
+
+	useEffect(() => {
+		if (!checkoutTracked && cartItems.length > 0 && !cartLoading) {
+			void trackAnalyticsEvent({
+				eventName: 'checkout_started',
+				userId: user?.id ?? null,
+				metadata: {
+					itemsCount: cartItems.length,
+					total,
+				},
+			});
+			setCheckoutTracked(true);
+		}
+	}, [checkoutTracked, cartItems.length, cartLoading, user?.id, total]);
 
 	const handleShippingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setShippingInfo({
@@ -623,6 +639,16 @@ const Checkout = () => {
 							response.reference,
 							'processing'
 						);
+						void trackAnalyticsEvent({
+							eventName: 'paid_order',
+							userId: user?.id ?? null,
+							orderId: updatedOrder.id,
+							metadata: {
+								orderNumber: updatedOrder.order_number,
+								total,
+								paymentReference: response.reference,
+							},
+						});
 
 						// Clear cart after successful payment
 						await clearCart();

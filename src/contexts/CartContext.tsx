@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import type { CartItem, Product } from '@/types/database';
+import { trackAnalyticsEvent } from '@/lib/analytics';
 
 interface CartItemWithProduct extends CartItem {
 	product?: Product;
@@ -197,6 +198,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 				});
 
 				toast.success('Added to cart');
+				void trackAnalyticsEvent({
+					eventName: 'add_to_cart',
+					userId: user.id,
+					productId,
+					metadata: { quantity },
+				});
 			} else {
 				// Add to localStorage for guest users
 				const savedCart = localStorage.getItem('guest_cart');
@@ -244,6 +251,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 				});
 
 				toast.success('Added to cart');
+				void trackAnalyticsEvent({
+					eventName: 'add_to_cart',
+					productId,
+					metadata: { quantity, guest: true },
+				});
 			}
 		} catch (error: any) {
 			console.error('Error adding to cart:', error);
