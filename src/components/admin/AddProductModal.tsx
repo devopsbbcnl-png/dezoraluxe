@@ -69,9 +69,12 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 	const [formData, setFormData] = useState({
 		name: '',
 		description: '',
+		color: '',
+		size: '',
 		category: '',
 		collection: '',
-		price: '',
+		cost_price: '',
+		selling_price: '',
 		stock: '',
 		featured: false,
 		new_arrival: false,
@@ -121,9 +124,9 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 				return;
 			}
 
-			// Validate file size (max 5MB)
-			if (file.size > 5 * 1024 * 1024) {
-				invalidFiles.push(`${file.name} is larger than 5MB`);
+			// Validate file size (max 100MB)
+			if (file.size > 100 * 1024 * 1024) {
+				invalidFiles.push(`${file.name} is larger than 100MB`);
 				return;
 			}
 
@@ -191,9 +194,9 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 				return;
 			}
 
-			// Validate file size (5MB max)
-			if (file.size > 5 * 1024 * 1024) {
-				toast.error('Image size must be less than 5MB');
+			// Validate file size (100MB max)
+			if (file.size > 100 * 1024 * 1024) {
+				toast.error('Image size must be less than 100MB');
 				return;
 			}
 
@@ -347,9 +350,9 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 				return;
 			}
 
-			// Validate file size (5MB max)
-			if (file.size > 5 * 1024 * 1024) {
-				toast.error('Image size must be less than 5MB');
+			// Validate file size (100MB max)
+			if (file.size > 100 * 1024 * 1024) {
+				toast.error('Image size must be less than 100MB');
 				return;
 			}
 
@@ -519,8 +522,14 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 			}
 
 			// Validate required fields
-			if (!formData.name || !formData.category || !formData.price || !formData.stock) {
+			if (!formData.name || !formData.category || !formData.cost_price || !formData.selling_price || !formData.stock) {
 				toast.error('Please fill in all required fields');
+				setLoading(false);
+				return;
+			}
+
+			if (Number(formData.selling_price) < Number(formData.cost_price)) {
+				toast.error('Selling price cannot be lower than cost price');
 				setLoading(false);
 				return;
 			}
@@ -563,9 +572,13 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 				.insert({
 					name: formData.name,
 					description: formData.description || null,
+					color: formData.color.trim() || null,
+					size: formData.size.trim() || null,
 					category: formData.category,
 					collection: formData.collection || null,
-					price: parseFloat(formData.price),
+					price: parseFloat(formData.selling_price),
+					cost_price: parseFloat(formData.cost_price),
+					selling_price: parseFloat(formData.selling_price),
 					stock: parseInt(formData.stock, 10),
 					images: finalImageUrls,
 					featured: formData.featured,
@@ -632,9 +645,12 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 			setFormData({
 				name: '',
 				description: '',
+				color: '',
+				size: '',
 				category: '',
 				collection: '',
-				price: '',
+				cost_price: '',
+				selling_price: '',
 				stock: '',
 				featured: false,
 				new_arrival: false,
@@ -710,7 +726,7 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 									Click to upload images
 								</span>
 								<span className="text-xs text-muted-foreground block mt-2">
-									PNG, JPG up to 5MB each (multiple selection allowed)
+									PNG, JPG up to 100MB each (multiple selection allowed)
 								</span>
 							</Label>
 							<Input
@@ -734,6 +750,28 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 							placeholder="e.g., Signature Timepiece"
 							required
 						/>
+					</div>
+
+					{/* Color and Size */}
+					<div className="grid grid-cols-2 gap-4">
+						<div className="space-y-2">
+							<Label htmlFor="color">Color</Label>
+							<Input
+								id="color"
+								value={formData.color}
+								onChange={handleChange}
+								placeholder="e.g., Black, Gold"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="size">Size</Label>
+							<Input
+								id="size"
+								value={formData.size}
+								onChange={handleChange}
+								placeholder="e.g., 42mm, One Size"
+							/>
+						</div>
 					</div>
 
 					{/* Description */}
@@ -1075,19 +1113,34 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 						</div>
 					</div>
 
-					{/* Price */}
-					<div className="space-y-2">
-						<Label htmlFor="price">Price (₦) *</Label>
-						<Input
-							id="price"
-							type="number"
-							step="0.01"
-							min="0"
-							value={formData.price}
-							onChange={handleChange}
-							placeholder="0.00"
-							required
-						/>
+					{/* Cost and Selling Price */}
+					<div className="grid grid-cols-2 gap-4">
+						<div className="space-y-2">
+							<Label htmlFor="cost_price">Cost Price (₦) *</Label>
+							<Input
+								id="cost_price"
+								type="number"
+								step="0.01"
+								min="0"
+								value={formData.cost_price}
+								onChange={handleChange}
+								placeholder="0.00"
+								required
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="selling_price">Selling Price (₦) *</Label>
+							<Input
+								id="selling_price"
+								type="number"
+								step="0.01"
+								min="0"
+								value={formData.selling_price}
+								onChange={handleChange}
+								placeholder="0.00"
+								required
+							/>
+						</div>
 					</div>
 
 					{/* Stock */}

@@ -10,9 +10,13 @@ export interface Product {
 	id: string;
 	name: string;
 	description: string | null;
+	color: string | null;
+	size: string | null;
 	category: string;
 	collection: string | null;
 	price: number;
+	cost_price?: number | null;
+	selling_price?: number | null;
 	images: string[];
 	stock: number;
 	featured: boolean;

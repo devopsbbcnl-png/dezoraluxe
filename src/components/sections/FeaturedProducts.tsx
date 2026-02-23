@@ -9,31 +9,29 @@ const FeaturedProducts = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadFeaturedProducts = async () => {
+    const loadProducts = async () => {
       try {
         const { data, error } = await supabase
           .from('products')
           .select('*')
-          .eq('featured', true)
-          .order('created_at', { ascending: false })
-          .limit(16); // Show 16 featured products for better selection
+          .order('created_at', { ascending: false });
 
         if (error) {
-          console.error('Error loading featured products:', error);
+          console.error('Error loading products:', error);
           setProducts([]);
           return;
         }
 
         setProducts(data || []);
       } catch (error) {
-        console.error('Error loading featured products:', error);
+        console.error('Error loading products:', error);
         setProducts([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadFeaturedProducts();
+    loadProducts();
   }, []);
 
   return (
