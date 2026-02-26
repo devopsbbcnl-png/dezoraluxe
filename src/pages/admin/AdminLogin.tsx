@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { signOutAndClearSession } from '@/lib/auth';
 import { checkAdminStatus } from '@/lib/admin';
 import { toast } from 'sonner';
 
@@ -55,7 +56,7 @@ const AdminLogin = () => {
 
 			if (!isAdmin) {
 				// Sign out if not admin
-				await supabase.auth.signOut();
+				await signOutAndClearSession();
 				setError('Access denied. You do not have admin privileges.');
 				setLoading(false);
 				return;

@@ -55,6 +55,7 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 		collection: '',
 		cost_price: '',
 		selling_price: '',
+		discount: '',
 		stock: '',
 		featured: false,
 		new_arrival: false,
@@ -80,6 +81,10 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 	// Populate form when product or open changes
 	useEffect(() => {
 		if (open && product) {
+			const existingDiscount =
+				product.selling_price && product.selling_price > 0
+					? Math.round(((product.selling_price - product.price) / product.selling_price) * 100)
+					: 0;
 			setFormData({
 				name: product.name ?? '',
 				description: product.description ?? '',
@@ -89,6 +94,7 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 				collection: product.collection ?? '',
 				cost_price: String(product.cost_price ?? ''),
 				selling_price: String(product.selling_price ?? product.price ?? ''),
+				discount: String(Math.max(0, Math.min(100, existingDiscount))),
 				stock: String(product.stock ?? ''),
 				featured: product.featured ?? false,
 				new_arrival: product.new_arrival ?? false,
@@ -210,6 +216,13 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 				return;
 			}
 
+			const discountPercentage = Number(formData.discount || 0);
+			if (Number.isNaN(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
+				toast.error('Discount must be a percentage between 0 and 100');
+				setLoading(false);
+				return;
+			}
+
 			const allImages = existingImages.length + newImageFiles.length;
 			if (allImages === 0) {
 				toast.error('Product must have at least one image');
@@ -237,6 +250,9 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 				setUploadingImages(false);
 			}
 
+			const sellingPrice = parseFloat(formData.selling_price);
+			const finalPrice = sellingPrice * (1 - discountPercentage / 100);
+
 			const { error } = await supabase
 				.from('products')
 				.update({
@@ -246,9 +262,9 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 					size: formData.size.trim() || null,
 					category: formData.category,
 					collection: formData.collection || null,
-					price: parseFloat(formData.selling_price),
+					price: finalPrice,
 					cost_price: parseFloat(formData.cost_price),
-					selling_price: parseFloat(formData.selling_price),
+					selling_price: sellingPrice,
 					stock: parseInt(formData.stock, 10),
 					images: finalImageUrls,
 					featured: formData.featured,
@@ -440,8 +456,8 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 						</div>
 					</div>
 
-					{/* Cost, Selling Price & Stock */}
-					<div className="grid grid-cols-2 gap-4">
+					{/* Cost, Selling Price & Discount */}
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<div className="space-y-2">
 							<Label htmlFor="cost_price">Cost Price (₦) *</Label>
 							<Input
@@ -466,6 +482,19 @@ const EditProductModal = ({ product, open, onOpenChange, onSuccess }: EditProduc
 								onChange={handleChange}
 								placeholder="0.00"
 								required
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="discount">Discount (%)</Label>
+							<Input
+								id="discount"
+								type="number"
+								min="0"
+								max="100"
+								step="1"
+								value={formData.discount}
+								onChange={handleChange}
+								placeholder="0"
 							/>
 						</div>
 					</div>

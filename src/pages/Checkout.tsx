@@ -32,7 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { initializePaystack, generatePaystackReference } from '@/lib/paystack';
 import { supabase } from '@/lib/supabase';
-import { ShippingAddress } from '@/types/database';
+import { DiscountCode, ShippingAddress } from '@/types/database';
 import { toast } from 'sonner';
 import { getOptimizedCloudinaryUrl } from '@/lib/cloudinary';
 import { trackAnalyticsEvent } from '@/lib/analytics';
@@ -118,6 +118,14 @@ const Checkout = () => {
 	const [isSavingAddress, setIsSavingAddress] = useState(false);
 	const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
 	const [checkoutTracked, setCheckoutTracked] = useState(false);
+	const [discountCodeInput, setDiscountCodeInput] = useState('');
+	const [appliedDiscountCode, setAppliedDiscountCode] = useState<DiscountCode | null>(
+		null
+	);
+	const [discountAmount, setDiscountAmount] = useState(0);
+	const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
+	const [discountUsageLocked, setDiscountUsageLocked] = useState(false);
+	const paymentIdempotencyKeyRef = useRef<string | null>(null);
 
 	// Load saved addresses
 	const loadSavedAddresses = async () => {
@@ -284,7 +292,6 @@ const Checkout = () => {
 		}>;
 		subtotal?: number;
 		shipping?: number;
-		tax?: number;
 		total?: number;
 	}
 
@@ -322,9 +329,8 @@ const Checkout = () => {
 		deliveryMethods[0];
 	// Always use the selected delivery method price (not locationState) so it updates when method changes
 	const shipping = selectedDeliveryMethod.price;
-	const tax = 0; // 0% tax
-	// Always calculate total with shipping included
-	const total = subtotal + shipping + tax;
+	const preDiscountTotal = subtotal + shipping;
+	const total = Math.max(0, preDiscountTotal - discountAmount);
 
 	// Redirect to cart if no items
 	useEffect(() => {
@@ -458,83 +464,227 @@ const Checkout = () => {
 		setCurrentStage('payment');
 	};
 
-	const createOrder = async (paymentReference: string | null = null) => {
+	const calculateDiscountAmount = (code: DiscountCode) => {
+		if (code.discount_type === 'percentage') {
+			return Math.min(
+				preDiscountTotal,
+				(preDiscountTotal * Number(code.discount_value)) / 100
+			);
+		}
+		return Math.min(preDiscountTotal, Number(code.discount_value));
+	};
+
+	useEffect(() => {
+		if (!appliedDiscountCode) {
+			setDiscountAmount(0);
+			return;
+		}
+		setDiscountAmount(calculateDiscountAmount(appliedDiscountCode));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [appliedDiscountCode, preDiscountTotal]);
+
+	const handleApplyDiscountCode = async () => {
+		const normalizedCode = discountCodeInput.trim().toUpperCase();
+		if (!normalizedCode) {
+			toast.error('Enter a discount code');
+			return;
+		}
+
+		if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
+			toast.error('Discount code must be 6 letters/numbers');
+			return;
+		}
+
+		setIsApplyingDiscount(true);
 		try {
-			// Get current user ID from Supabase session to ensure it matches RLS policy
-			const { data: { user: authUser } } = await supabase.auth.getUser();
-			const userId = authUser?.id || null;
-
-			// Generate order number using RPC function or fallback
-			let orderNumber: string;
-
-			try {
-				const { data: orderNumberData, error: orderNumberError } =
-					await supabase.rpc('generate_order_number');
-
-				if (orderNumberError || !orderNumberData) {
-					throw new Error('RPC function failed');
-				}
-				orderNumber = orderNumberData;
-			} catch (error) {
-				// Fallback to manual order number generation with more uniqueness
-				const year = new Date().getFullYear();
-				const timestamp = Date.now();
-				const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-				orderNumber = `ORD-${year}-${timestamp.toString().slice(-9)}-${random}`;
-			}
-
-			// Create order
-			const shippingAddressJson = {
-				name: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
-				address: shippingInfo.address,
-				city: shippingInfo.city,
-				state: shippingInfo.state,
-				zip_code: shippingInfo.zipCode,
-				country: shippingInfo.country,
-			};
-
-			const { data: orderData, error: orderError } = await supabase
-				.from('orders')
-				.insert({
-					user_id: userId,
-					order_number: orderNumber,
-					total_amount: total,
-					status: 'pending',
-					shipping_address: shippingAddressJson,
-					payment_reference: paymentReference,
-					delivery_method: selectedDeliveryMethod.name,
-				})
-				.select()
+			const { data, error } = await supabase
+				.from('discount_codes')
+				.select('*')
+				.eq('code', normalizedCode)
+				.eq('is_active', true)
 				.single();
 
-			if (orderError) {
-				console.error('Error creating order:', orderError);
-				throw orderError;
+			if (error || !data) {
+				toast.error('Invalid or inactive discount code');
+				setAppliedDiscountCode(null);
+				setDiscountAmount(0);
+				return;
 			}
 
-			// Create order items
-			const orderItems = cartItems
-				.filter((item) => item.product) // Only include items with product data
+			const code = data as DiscountCode;
+			const now = new Date();
+
+			if (code.expires_at && new Date(code.expires_at) < now) {
+				toast.error('This discount code has expired');
+				setAppliedDiscountCode(null);
+				setDiscountAmount(0);
+				return;
+			}
+
+			if (code.usage_limit !== null && code.times_used >= code.usage_limit) {
+				toast.error('This discount code has reached its usage limit');
+				setAppliedDiscountCode(null);
+				setDiscountAmount(0);
+				return;
+			}
+
+			const customerEmail = shippingInfo.email.trim().toLowerCase();
+			const customerPhone = shippingInfo.phone.trim();
+
+			if (
+				code.customer_email &&
+				code.customer_email.trim().toLowerCase() !== customerEmail
+			) {
+				toast.error('This discount code is not valid for this email address');
+				setAppliedDiscountCode(null);
+				setDiscountAmount(0);
+				return;
+			}
+
+			if (code.customer_phone && code.customer_phone.trim() !== customerPhone) {
+				toast.error('This discount code is not valid for this phone number');
+				setAppliedDiscountCode(null);
+				setDiscountAmount(0);
+				return;
+			}
+
+			if (code.one_time_per_user) {
+				const emailForCheck = shippingInfo.email.trim().toLowerCase();
+				const phoneForCheck = shippingInfo.phone.trim();
+
+				const { data: priorUsageByUser, error: userUsageError } = user
+					? await supabase
+							.from('orders')
+							.select('id')
+							.eq('discount_code_id', code.id)
+							.eq('user_id', user.id)
+							.limit(1)
+					: { data: null, error: null };
+
+				if (userUsageError) {
+					throw userUsageError;
+				}
+
+				let contactUsageQuery = supabase
+					.from('orders')
+					.select('id')
+					.eq('discount_code_id', code.id);
+
+				if (emailForCheck && phoneForCheck) {
+					contactUsageQuery = contactUsageQuery.or(
+						`discount_customer_email.eq.${emailForCheck},discount_customer_phone.eq.${phoneForCheck}`
+					);
+				} else if (emailForCheck) {
+					contactUsageQuery = contactUsageQuery.eq(
+						'discount_customer_email',
+						emailForCheck
+					);
+				} else if (phoneForCheck) {
+					contactUsageQuery = contactUsageQuery.eq(
+						'discount_customer_phone',
+						phoneForCheck
+					);
+				}
+
+				const { data: priorUsageByContact, error: contactUsageError } =
+					await contactUsageQuery.limit(1);
+
+				if (contactUsageError) {
+					throw contactUsageError;
+				}
+
+				if ((priorUsageByUser && priorUsageByUser.length > 0) || (priorUsageByContact && priorUsageByContact.length > 0)) {
+					toast.error('This code can only be used once per customer');
+					setAppliedDiscountCode(null);
+					setDiscountAmount(0);
+					return;
+				}
+			}
+
+			setAppliedDiscountCode(code);
+			setDiscountCodeInput(normalizedCode);
+			setDiscountUsageLocked(true);
+			toast.success('Discount code applied');
+		} catch (error) {
+			console.error('Error applying discount code:', error);
+			toast.error('Failed to apply discount code');
+		} finally {
+			setIsApplyingDiscount(false);
+		}
+	};
+
+	const handleRemoveDiscountCode = () => {
+		setAppliedDiscountCode(null);
+		setDiscountAmount(0);
+		setDiscountCodeInput('');
+		setDiscountUsageLocked(false);
+		toast.success('Discount removed');
+	};
+
+	const generateIdempotencyKey = () => {
+		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+			return `order_${crypto.randomUUID()}`;
+		}
+		return `order_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+	};
+
+	const createOrder = async (
+		idempotencyKey: string,
+		orderTotal: number = total,
+		originalTotal: number = preDiscountTotal
+	) => {
+		try {
+			const items = cartItems
+				.filter((item) => item.product)
 				.map((item) => ({
-					order_id: orderData.id,
 					product_id: item.product_id,
 					quantity: item.quantity,
 					price: item.product?.price || 0,
 				}));
 
-			if (orderItems.length === 0) {
+			if (items.length === 0) {
 				throw new Error('No valid items to create order');
 			}
 
-			const { error: itemsError } = await supabase
-				.from('order_items')
-				.insert(orderItems);
+			const { data, error } = await supabase.functions.invoke('create-order', {
+				body: {
+					idempotencyKey,
+					orderTotal,
+					originalTotal,
+					selectedDeliveryMethodName: selectedDeliveryMethod.name,
+					shippingInfo: {
+						firstName: shippingInfo.firstName,
+						lastName: shippingInfo.lastName,
+						address: shippingInfo.address,
+						city: shippingInfo.city,
+						state: shippingInfo.state,
+						zipCode: shippingInfo.zipCode,
+						country: shippingInfo.country,
+						email: shippingInfo.email,
+						phone: shippingInfo.phone,
+					},
+					items,
+					discount: {
+						codeId: appliedDiscountCode?.id ?? null,
+						code: appliedDiscountCode?.code ?? null,
+						type: appliedDiscountCode?.discount_type ?? null,
+						value: appliedDiscountCode?.discount_value ?? null,
+						amount: discountAmount,
+						customerEmail: shippingInfo.email.trim().toLowerCase() || null,
+						customerPhone: shippingInfo.phone.trim() || null,
+					},
+				},
+			});
 
-			if (itemsError) {
-				throw itemsError;
+			if (error) {
+				throw error;
 			}
 
-			return orderData;
+			if (!data?.order?.id) {
+				throw new Error('Order creation returned invalid response');
+			}
+
+			return data.order;
 		} catch (error) {
 			console.error('Error creating order:', error);
 			throw error;
@@ -582,18 +732,20 @@ const Checkout = () => {
 		if (isProcessingPayment) return;
 
 		setIsProcessingPayment(true);
+		const finalTotal = Math.max(0, preDiscountTotal - discountAmount);
 
 		try {
 			// Create order before payment with pending status
 			let order;
+			const idempotencyKey =
+				paymentIdempotencyKeyRef.current || generateIdempotencyKey();
+			paymentIdempotencyKeyRef.current = idempotencyKey;
 			try {
-				order = await createOrder(null); // Create order without payment reference first
+				order = await createOrder(idempotencyKey, finalTotal, preDiscountTotal);
 				setPendingOrderId(order.id);
 				toast.success('Order created. Processing payment...');
 			} catch (error) {
 				console.error('Error creating order:', error);
-				const errorMessage =
-					error instanceof Error ? error.message : 'Unknown error';
 				toast.error('Failed to create order. Please try again.');
 				setIsProcessingPayment(false);
 				return;
@@ -605,7 +757,7 @@ const Checkout = () => {
 			// Initialize Paystack payment
 			initializePaystack(
 				email,
-				total,
+				finalTotal,
 				reference,
 				{
 					custom_fields: [
@@ -629,6 +781,11 @@ const Checkout = () => {
 							variable_name: 'delivery_method',
 							value: selectedDeliveryMethod.name,
 						},
+						{
+							display_name: 'Discount Code',
+							variable_name: 'discount_code',
+							value: appliedDiscountCode?.code || 'None',
+						},
 					],
 				},
 				async (response) => {
@@ -639,19 +796,41 @@ const Checkout = () => {
 							response.reference,
 							'processing'
 						);
+
+						if (appliedDiscountCode) {
+							const { data: latestCodeData } = await supabase
+								.from('discount_codes')
+								.select('times_used')
+								.eq('id', appliedDiscountCode.id)
+								.single();
+
+							await supabase
+								.from('discount_codes')
+								.update({
+									times_used: (latestCodeData?.times_used || 0) + 1,
+									updated_at: new Date().toISOString(),
+								})
+								.eq('id', appliedDiscountCode.id);
+						}
+
+						setDiscountUsageLocked(false);
+
 						void trackAnalyticsEvent({
 							eventName: 'paid_order',
 							userId: user?.id ?? null,
 							orderId: updatedOrder.id,
 							metadata: {
 								orderNumber: updatedOrder.order_number,
-								total,
+								total: finalTotal,
 								paymentReference: response.reference,
+								discountCode: appliedDiscountCode?.code || null,
+								discountAmount,
 							},
 						});
 
 						// Clear cart after successful payment
 						await clearCart();
+						paymentIdempotencyKeyRef.current = null;
 
 						toast.success('Payment successful! Order confirmed.');
 
@@ -664,14 +843,14 @@ const Checkout = () => {
 								paymentReference: response.reference,
 								shippingInfo,
 								cartItems,
-								total,
+								total: finalTotal,
 								deliveryMethod: selectedDeliveryMethod,
+								discountCode: appliedDiscountCode?.code || null,
+								discountAmount,
 							},
 						});
 					} catch (error) {
 						console.error('Error updating order:', error);
-						const errorMessage =
-							error instanceof Error ? error.message : 'Unknown error';
 						toast.error(
 							'Payment successful but failed to update order. Please contact support with reference: ' +
 								response.reference
@@ -693,6 +872,7 @@ const Checkout = () => {
 						}
 					}
 					toast.error('Payment was cancelled');
+					paymentIdempotencyKeyRef.current = null;
 					setIsProcessingPayment(false);
 				}
 			);
@@ -711,6 +891,7 @@ const Checkout = () => {
 					console.error('Error cleaning up pending order:', cleanupError);
 				}
 			}
+			paymentIdempotencyKeyRef.current = null;
 			setIsProcessingPayment(false);
 		}
 	};
@@ -1262,6 +1443,52 @@ const Checkout = () => {
 											</CardTitle>
 										</CardHeader>
 										<CardContent className="space-y-4">
+											<div className="bg-muted/50 p-4 rounded-lg space-y-3">
+												<p className="text-sm font-medium">Discount Code</p>
+												<div className="flex gap-2">
+													<Input
+														placeholder="Enter 6-char code"
+														value={discountCodeInput}
+														maxLength={6}
+														onChange={(e) =>
+															setDiscountCodeInput(
+																e.target.value
+																	.toUpperCase()
+																	.replace(/[^A-Z0-9]/g, '')
+															)
+														}
+														disabled={isApplyingDiscount || !!appliedDiscountCode}
+													/>
+													<Button
+														type="button"
+														variant="outline"
+														onClick={handleApplyDiscountCode}
+													disabled={
+														isApplyingDiscount ||
+														!!appliedDiscountCode ||
+														discountUsageLocked
+													}
+													>
+														{isApplyingDiscount ? 'Applying...' : 'Apply'}
+													</Button>
+												</div>
+												{appliedDiscountCode && (
+													<div className="flex items-center justify-between text-sm">
+														<p className="text-muted-foreground">
+															Applied: <span className="font-semibold text-foreground">{appliedDiscountCode.code}</span>
+														</p>
+														<Button
+															type="button"
+															variant="ghost"
+															size="sm"
+															onClick={handleRemoveDiscountCode}
+														>
+															Remove
+														</Button>
+													</div>
+												)}
+											</div>
+
 											<div className="bg-muted/50 p-4 rounded-lg space-y-2">
 												<p className="text-sm font-medium">Payment Method</p>
 												<p className="text-sm text-muted-foreground">
@@ -1356,10 +1583,14 @@ const Checkout = () => {
 													)}
 												</span>
 											</div>
-											<div className="flex justify-between text-sm">
-												<span className="text-muted-foreground">Tax</span>
-												<span>{formatPrice(tax)}</span>
-											</div>
+											{discountAmount > 0 && (
+												<div className="flex justify-between text-sm">
+													<span className="text-muted-foreground">
+														Discount{appliedDiscountCode ? ` (${appliedDiscountCode.code})` : ''}
+													</span>
+													<span className="text-green-600">-{formatPrice(discountAmount)}</span>
+												</div>
+											)}
 											<div className="border-t border-border pt-4">
 												<div className="flex justify-between text-lg font-bold mb-4">
 													<span>Total</span>

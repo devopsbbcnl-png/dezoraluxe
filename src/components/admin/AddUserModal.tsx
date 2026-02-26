@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabase';
+import { signOutAndClearSession } from '@/lib/auth';
 import { checkAdminStatus } from '@/lib/admin';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
@@ -91,7 +92,7 @@ const AddUserModal = ({ open, onOpenChange, onSuccess }: AddUserModalProps) => {
 			// If Supabase returned a session for the new user (e.g. when email confirmation is off),
 			// sign out so the admin can log back in.
 			if (data.session) {
-				await supabase.auth.signOut();
+				await signOutAndClearSession();
 				toast.success('User created. Please log in again.');
 				onOpenChange(false);
 				navigate('/admin/login');

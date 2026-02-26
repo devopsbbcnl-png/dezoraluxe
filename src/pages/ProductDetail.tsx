@@ -108,6 +108,10 @@ const ProductDetail = () => {
 	const images = product.images && product.images.length > 0 
 		? product.images 
 		: ['/placeholder.svg'];
+	const originalPrice = product.selling_price ?? product.price;
+	const discountPercentage =
+		originalPrice > 0 ? Math.round(((originalPrice - product.price) / originalPrice) * 100) : 0;
+	const hasDiscount = discountPercentage > 0;
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -157,7 +161,12 @@ const ProductDetail = () => {
 						<div className="grid lg:grid-cols-2 gap-12">
 							{/* Product Images */}
 							<div className="space-y-4">
-								<div className="aspect-square overflow-hidden rounded-sm bg-card">
+								<div className="relative aspect-square overflow-hidden rounded-sm bg-card">
+									{hasDiscount && (
+										<div className="absolute top-3 right-3 z-10 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded-sm">
+											-{discountPercentage}%
+										</div>
+									)}
 									<img
 										src={
 											images[selectedImage]
@@ -211,9 +220,16 @@ const ProductDetail = () => {
 										{product.name}
 									</h1>
 									{/* Rating removed - not in database schema */}
-									<p className="text-3xl font-bold text-gradient-gold">
-										{formatPrice(product.price)}
-									</p>
+									<div className="flex items-center gap-3">
+										<p className="text-3xl font-bold text-gradient-gold">
+											{formatPrice(product.price)}
+										</p>
+										{hasDiscount && (
+											<p className="text-lg text-muted-foreground line-through">
+												{formatPrice(originalPrice)}
+											</p>
+										)}
+									</div>
 								</div>
 
 								<div className="space-y-4">

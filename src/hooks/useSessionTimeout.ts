@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { signOutAndClearSession } from '@/lib/auth';
 import { loadSettings } from '@/lib/settings';
 
 /**
@@ -33,8 +33,7 @@ export const useSessionTimeout = () => {
 
 				if (timeSinceLastActivity >= timeoutMinutes) {
 					// Session expired
-					await supabase.auth.signOut();
-					localStorage.removeItem('adminAuthenticated');
+					await signOutAndClearSession();
 					navigate('/admin/login');
 				}
 			}, timeoutMinutes * 60 * 1000);

@@ -63,8 +63,11 @@ import {
 	Eye,
 	X,
 	Menu,
+	TicketPercent,
+	RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { signOutAndClearSession } from '@/lib/auth';
 import { toast } from 'sonner';
 import {
 	checkAdminStatus,
@@ -75,6 +78,7 @@ import {
 import AddProductModal from '@/components/admin/AddProductModal';
 import EditProductModal from '@/components/admin/EditProductModal';
 import AddUserModal from '@/components/admin/AddUserModal';
+import DiscountCodesManager from '@/components/admin/DiscountCodesManager';
 import {
 	saveSettings,
 	loadSettings,
@@ -164,6 +168,7 @@ const AdminDashboard = () => {
 	const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 	const [loadingOrderItems, setLoadingOrderItems] = useState(false);
 	const [analyticsLoading, setAnalyticsLoading] = useState(false);
+	const [isRefreshingStats, setIsRefreshingStats] = useState(false);
 	const [analyticsDatePreset, setAnalyticsDatePreset] = useState<
 		'today' | '7d' | '30d' | 'custom'
 	>('30d');
@@ -222,8 +227,7 @@ const AdminDashboard = () => {
 
 			if (!isAdmin) {
 				toast.error('Access denied. Admin privileges required.');
-				await supabase.auth.signOut();
-				localStorage.removeItem('adminAuthenticated');
+				await signOutAndClearSession();
 				navigate('/admin/login');
 				return;
 			}
@@ -327,6 +331,16 @@ const AdminDashboard = () => {
 			});
 		} catch (error) {
 			console.error('Error loading stats:', error);
+		}
+	};
+
+	const handleRefreshStats = async () => {
+		setIsRefreshingStats(true);
+		try {
+			await loadStats();
+			toast.success('Dashboard stats refreshed');
+		} finally {
+			setIsRefreshingStats(false);
 		}
 	};
 
@@ -827,8 +841,7 @@ const AdminDashboard = () => {
 	};
 
 	const handleLogout = async () => {
-		localStorage.removeItem('adminAuthenticated');
-		await supabase.auth.signOut();
+		await signOutAndClearSession();
 		toast.success('Logged out successfully');
 		navigate('/admin/login');
 	};
@@ -842,6 +855,14 @@ const AdminDashboard = () => {
 			return order.shipping_address.name;
 		}
 		return 'Unknown Customer';
+	};
+
+	const getCustomerEmail = (order: Order) => {
+		return (
+			order.customer_email ||
+			order.discount_customer_email ||
+			(order.user_id ? 'Registered user (email unavailable)' : 'Guest email unavailable')
+		);
 	};
 
 	const formatPrice = (price: number) => {
@@ -1319,6 +1340,7 @@ const AdminDashboard = () => {
 		{ id: 'overview', label: 'Overview', icon: LayoutDashboard },
 		{ id: 'products', label: 'Products', icon: Package },
 		{ id: 'orders', label: 'Orders', icon: ShoppingCart },
+		{ id: 'discounts', label: 'Discount Codes', icon: TicketPercent },
 		{ id: 'analytics', label: 'Analytics', icon: BarChart3 },
 		{ id: 'users', label: 'Users', icon: Users },
 		{ id: 'subscribers', label: 'Subscribers', icon: Mail },
@@ -1446,11 +1468,25 @@ const AdminDashboard = () => {
 
 				{activeTab === 'overview' && !loading && (
 					<div className="space-y-8">
-						<div>
-							<h2 className="text-2xl font-bold mb-2 sm:text-3xl">Dashboard Overview</h2>
-							<p className="text-muted-foreground text-sm sm:text-base">
-								Welcome back! Here's what's happening with your store today.
-							</p>
+						<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+							<div>
+								<h2 className="text-2xl font-bold mb-2 sm:text-3xl">Dashboard Overview</h2>
+								<p className="text-muted-foreground text-sm sm:text-base">
+									Welcome back! Here's what's happening with your store today.
+								</p>
+							</div>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={handleRefreshStats}
+								disabled={isRefreshingStats}
+								className="self-start"
+							>
+								<RefreshCw
+									className={`mr-2 h-4 w-4 ${isRefreshingStats ? 'animate-spin' : ''}`}
+								/>
+								{isRefreshingStats ? 'Refreshing...' : 'Refresh Stats'}
+							</Button>
 						</div>
 
 						{/* Stats Grid */}
@@ -1694,11 +1730,12 @@ const AdminDashboard = () => {
 
 						<Card className="border-border">
 							<CardContent className="p-0 overflow-x-auto">
-								<Table className="min-w-[640px]">
+								<Table className="min-w-[760px]">
 									<TableHeader>
 										<TableRow>
 											<TableHead>Order ID</TableHead>
 											<TableHead>Customer</TableHead>
+											<TableHead>Email</TableHead>
 											<TableHead>Amount</TableHead>
 											<TableHead>Status</TableHead>
 											<TableHead>Date</TableHead>
@@ -1709,7 +1746,7 @@ const AdminDashboard = () => {
 										{orders.length === 0 ? (
 											<TableRow>
 												<TableCell
-													colSpan={6}
+													colSpan={7}
 													className="text-center py-8 text-muted-foreground"
 												>
 													No orders found
@@ -1722,6 +1759,7 @@ const AdminDashboard = () => {
 														{order.order_number}
 													</TableCell>
 													<TableCell>{getCustomerName(order)}</TableCell>
+													<TableCell>{getCustomerEmail(order)}</TableCell>
 													<TableCell>
 														{formatPrice(Number(order.total_amount))}
 													</TableCell>
@@ -1786,6 +1824,8 @@ const AdminDashboard = () => {
 						</Card>
 					</div>
 				)}
+
+				{activeTab === 'discounts' && <DiscountCodesManager />}
 
 				{activeTab === 'users' && (
 					<div className="space-y-8">
@@ -3567,6 +3607,9 @@ const AdminDashboard = () => {
 										<CardTitle className="text-lg">Shipping Address</CardTitle>
 									</CardHeader>
 									<CardContent className="space-y-1">
+										<p className="text-sm text-muted-foreground">
+											Email: {getCustomerEmail(selectedOrder)}
+										</p>
 										{typeof selectedOrder.shipping_address === 'object' &&
 										selectedOrder.shipping_address ? (
 											<>

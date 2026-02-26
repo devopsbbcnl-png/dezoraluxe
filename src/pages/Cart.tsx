@@ -41,8 +41,7 @@ const Cart = () => {
 		0
 	);
 	const shipping = 0; // Shipping will be calculated in checkout based on selected delivery method
-	const tax = 0; // 0% tax
-	const total = subtotal + shipping + tax;
+	const total = subtotal + shipping;
 
 	return (
 		<div className="min-h-screen bg-background">
@@ -194,10 +193,6 @@ const Cart = () => {
 														Calculated at checkout
 													</span>
 												</div>
-												<div className="flex justify-between text-sm">
-													<span className="text-muted-foreground">Tax</span>
-													<span>{formatPrice(tax)}</span>
-												</div>
 											</div>
 
 											<div className="border-t border-border pt-4">
@@ -222,7 +217,6 @@ const Cart = () => {
 																})),
 																subtotal,
 																shipping,
-																tax,
 																total,
 															}
 														});

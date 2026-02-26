@@ -54,6 +54,15 @@ export interface Order {
 	};
 	payment_reference?: string | null;
 	delivery_method?: string | null;
+	customer_email?: string | null;
+	discount_code_id?: string | null;
+	discount_code?: string | null;
+	discount_type?: 'percentage' | 'fixed' | null;
+	discount_value?: number | null;
+	discount_amount?: number;
+	pre_discount_total?: number | null;
+	discount_customer_email?: string | null;
+	discount_customer_phone?: string | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -112,6 +121,23 @@ export interface ShippingAddress {
 	zip_code: string;
 	country: string;
 	is_default: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface DiscountCode {
+	id: string;
+	code: string;
+	discount_type: 'percentage' | 'fixed';
+	discount_value: number;
+	is_active: boolean;
+	usage_limit: number | null;
+	times_used: number;
+	one_time_per_user?: boolean;
+	customer_email?: string | null;
+	customer_phone?: string | null;
+	expires_at: string | null;
+	created_by: string | null;
 	created_at: string;
 	updated_at: string;
 }

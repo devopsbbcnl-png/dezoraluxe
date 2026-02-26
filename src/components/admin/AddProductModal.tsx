@@ -75,6 +75,7 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 		collection: '',
 		cost_price: '',
 		selling_price: '',
+		discount: '',
 		stock: '',
 		featured: false,
 		new_arrival: false,
@@ -534,6 +535,13 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 				return;
 			}
 
+			const discountPercentage = Number(formData.discount || 0);
+			if (Number.isNaN(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
+				toast.error('Discount must be a percentage between 0 and 100');
+				setLoading(false);
+				return;
+			}
+
 			if (imageFiles.length === 0) {
 				toast.error('Please upload at least one product image');
 				setLoading(false);
@@ -565,6 +573,8 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 
 			// Use uploaded URLs or fallback to placeholder if all failed
 			const finalImageUrls = imageUrls.length > 0 ? imageUrls : ['/placeholder.svg'];
+			const sellingPrice = parseFloat(formData.selling_price);
+			const finalPrice = sellingPrice * (1 - discountPercentage / 100);
 
 			// Create product in Supabase
 			const { data, error } = await supabase
@@ -576,9 +586,9 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 					size: formData.size.trim() || null,
 					category: formData.category,
 					collection: formData.collection || null,
-					price: parseFloat(formData.selling_price),
+					price: finalPrice,
 					cost_price: parseFloat(formData.cost_price),
-					selling_price: parseFloat(formData.selling_price),
+					selling_price: sellingPrice,
 					stock: parseInt(formData.stock, 10),
 					images: finalImageUrls,
 					featured: formData.featured,
@@ -651,6 +661,7 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 				collection: '',
 				cost_price: '',
 				selling_price: '',
+				discount: '',
 				stock: '',
 				featured: false,
 				new_arrival: false,
@@ -1113,8 +1124,8 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 						</div>
 					</div>
 
-					{/* Cost and Selling Price */}
-					<div className="grid grid-cols-2 gap-4">
+					{/* Cost, Selling Price and Discount */}
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<div className="space-y-2">
 							<Label htmlFor="cost_price">Cost Price (₦) *</Label>
 							<Input
@@ -1139,6 +1150,19 @@ const AddProductModal = ({ open, onOpenChange, onSuccess }: AddProductModalProps
 								onChange={handleChange}
 								placeholder="0.00"
 								required
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="discount">Discount (%)</Label>
+							<Input
+								id="discount"
+								type="number"
+								min="0"
+								max="100"
+								step="1"
+								value={formData.discount}
+								onChange={handleChange}
+								placeholder="0"
 							/>
 						</div>
 					</div>

@@ -40,10 +40,10 @@ const FeaturedProducts = () => {
         {/* Minimal Header */}
         <div className="text-center mb-12">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-            Shop Premium Essentials
+            WHERE LEGIT MEETS LUXURY
           </h1>
           <p className="text-muted-foreground">
-            Discover our curated collection
+            Discover our curated collection of premium essentials, designed for those who appreciate the finer details.
           </p>
         </div>
         

@@ -82,7 +82,6 @@ const OrderConfirmation = () => {
 						0
 					) || 0,
 				shippingCost: orderData.deliveryMethod?.price || 0,
-				tax: ((orderData.total || 0) * 0.08) / 1.08,
 				total: orderData.total || 0,
 		  }
 		: {
@@ -103,7 +102,6 @@ const OrderConfirmation = () => {
 				},
 				subtotal: 0,
 				shippingCost: 0,
-				tax: 0,
 				total: 0,
 		  };
 
@@ -212,21 +210,39 @@ const OrderConfirmation = () => {
 													className="flex gap-4 pb-4 border-b border-border last:border-0 last:pb-0"
 												>
 													<img
-														src={item.image}
-														alt={item.name}
+														src={
+															item.image ||
+															(item.product?.images?.[0]
+																? getOptimizedCloudinaryUrl(
+																		item.product.images[0],
+																		{
+																			width: 200,
+																			height: 200,
+																			crop: 'fill',
+																			quality: 'auto',
+																		}
+																  )
+																: '/placeholder.svg')
+														}
+														alt={item.name || item.product?.name || 'Product image'}
 														className="w-20 h-20 object-cover rounded-sm"
 													/>
 													<div className="flex-1">
-														<h3 className="font-semibold mb-1">{item.name}</h3>
+														<h3 className="font-semibold mb-1">
+															{item.name || item.product?.name || 'Product'}
+														</h3>
 														<p className="text-sm text-muted-foreground mb-2">
-															{item.category}
+															{item.category || item.product?.category || 'General'}
 														</p>
 														<div className="flex items-center justify-between">
 															<p className="text-sm text-muted-foreground">
 																Quantity: {item.quantity}
 															</p>
 															<p className="font-semibold text-gradient-gold">
-																{formatPrice(item.price * item.quantity)}
+																{formatPrice(
+																	(item.product?.price || item.price || 0) *
+																		item.quantity
+																)}
 															</p>
 														</div>
 													</div>
@@ -287,10 +303,6 @@ const OrderConfirmation = () => {
 															formatPrice(orderDetails.shippingCost)
 														)}
 													</span>
-												</div>
-												<div className="flex justify-between text-sm">
-													<span className="text-muted-foreground">Tax</span>
-													<span>{formatPrice(orderDetails.tax)}</span>
 												</div>
 											</div>
 

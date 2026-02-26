@@ -15,6 +15,10 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const { addToCart } = useCart();
+  const originalPrice = product.selling_price ?? product.price;
+  const discountPercentage =
+    originalPrice > 0 ? Math.round(((originalPrice - product.price) / originalPrice) * 100) : 0;
+  const hasDiscount = discountPercentage > 0;
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-NG", {
@@ -33,6 +37,11 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
     >
       {/* Image Container */}
       <div className="relative aspect-square overflow-hidden bg-card rounded-sm mb-4">
+        {hasDiscount && (
+          <div className="absolute top-2 right-2 z-10 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded-sm">
+            -{discountPercentage}%
+          </div>
+        )}
         <img
           src={
             product.images && product.images.length > 0
@@ -105,9 +114,14 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
             {product.name}
           </h3>
         </Link>
-        <p className="text-lg font-semibold text-gradient-gold">
-          {formatPrice(product.price)}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-lg font-semibold text-gradient-gold">{formatPrice(product.price)}</p>
+          {hasDiscount && (
+            <p className="text-sm text-muted-foreground line-through">
+              {formatPrice(originalPrice)}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

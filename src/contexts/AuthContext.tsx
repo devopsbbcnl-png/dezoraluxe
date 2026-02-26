@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { signOutAndClearSession } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
@@ -87,7 +88,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	};
 
 	const signOut = async () => {
-		await supabase.auth.signOut();
+		try {
+			await signOutAndClearSession();
+		} finally {
+			setSession(null);
+			setUser(null);
+		}
 		navigate('/');
 	};
 
