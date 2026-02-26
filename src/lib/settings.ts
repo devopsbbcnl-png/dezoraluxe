@@ -44,8 +44,8 @@ const DEFAULT_SETTINGS: AdminSettings = {
 	},
 	store: {
 		storeName: 'Dezora Luxe',
-		storeEmail: 'support@dezoraluxe.com',
-		storePhone: '',
+		storeEmail: 'bibianaezeonu25@gmail.com',
+		storePhone: '08107124371',
 		currency: 'NGN',
 		timezone: 'America/New_York',
 	},
